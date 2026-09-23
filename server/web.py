@@ -212,6 +212,52 @@ class WebServer:
             success = self.db.skip_episode(video_id)
             return {"ok": success}
 
+        @app.route("/api/episode/delete", method="POST")
+        def api_episode_delete():
+            data = request.json or {}
+            video_id = data.get("video_id")
+            if not video_id:
+                response.status = 400
+                return {"error": "Missing video_id"}
+
+            # Mark skipped in local database so it is excluded from feed
+            self.db.skip_episode(video_id, allow_ready=True)
+
+            # Clean up local audio directory if present
+            ep_dir = os.path.join(self.media_dir, video_id)
+            if os.path.exists(ep_dir):
+                import shutil
+                try:
+                    shutil.rmtree(ep_dir)
+                    logger.info(f"Deleted local audio files for {video_id}")
+                except Exception as e:
+                    logger.warning(f"Could not remove local audio dir {ep_dir}: {e}")
+
+            # If GitHub is enabled, delete release in GitHub Releases and trigger feed rebuild
+            if self.config.get("github", {}).get("enabled"):
+                def delete_from_gh():
+                    repo = self.config.get("github", {}).get("repo")
+                    token = os.environ.get("GITHUB_TOKEN")
+                    if token and repo:
+                        try:
+                            from github.github_api import GitHubAPI
+                            api = GitHubAPI(token=token, repo=repo)
+                            api.delete_release_by_tag(f"ep-{video_id}")
+                            logger.info(f"Deleted release ep-{video_id} via GitHub API")
+                        except Exception as e:
+                            logger.warning(f"GitHub API release delete failed: {e}")
+
+                    try:
+                        subprocess.run(["gh", "release", "delete", f"ep-{video_id}", "--yes", "--repo", repo], check=False)
+                        subprocess.run(["gh", "workflow", "run", "towercast.yml", "--repo", repo], check=False)
+                        logger.info(f"Deleted release ep-{video_id} and triggered feed rebuild")
+                    except Exception as e:
+                        logger.warning(f"Could not delete release ep-{video_id} on GitHub via gh: {e}")
+
+                threading.Thread(target=delete_from_gh, daemon=True).start()
+
+            return {"ok": True, "message": f"Episode {video_id} deleted"}
+
         @app.route("/api/sync", method="POST")
         def api_sync():
             data = request.json or {}

@@ -77,6 +77,21 @@ class GitHubAPI:
             "prerelease": prerelease,
         })
 
+    def delete_release(self, release_id: int) -> bool:
+        self._request("DELETE", f"/repos/{self.repo}/releases/{release_id}")
+        return True
+
+    def delete_release_by_tag(self, tag: str) -> bool:
+        rel = self.get_release_by_tag(tag)
+        if not rel:
+            return False
+        self.delete_release(rel["id"])
+        try:
+            self._request("DELETE", f"/repos/{self.repo}/git/refs/tags/{tag}")
+        except Exception:
+            pass
+        return True
+
     def upload_asset(self, release_id: int, filename: str,
                      file_bytes: bytes, content_type: str = "audio/mp4") -> Dict:
         """Uploads a binary asset to a release. Returns the asset JSON."""

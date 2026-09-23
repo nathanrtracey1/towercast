@@ -244,18 +244,18 @@ def build_pages_output(episodes: List[Dict], pending_episodes: List[Dict], confi
     return out
 
 
-def handle_issue_event(api: GitHubAPI, config: Dict) -> Tuple[Optional[str], Optional[str]]:
+def handle_issue_event(api: GitHubAPI, config: Dict) -> Tuple[Optional[str], Optional[str], Optional[int]]:
     """Checks GITHUB_EVENT_PATH if workflow was triggered by an issue."""
     event_path = os.environ.get("GITHUB_EVENT_PATH")
     if not event_path or not os.path.exists(event_path):
-        return None, None
+        return None, None, None
 
     try:
         with open(event_path, "r", encoding="utf-8") as f:
             data = json.load(f)
         issue = data.get("issue")
         if not issue:
-            return None, None
+            return None, None, None
 
         title = issue.get("title", "").strip()
         issue_num = issue.get("number")
@@ -265,18 +265,30 @@ def handle_issue_event(api: GitHubAPI, config: Dict) -> Tuple[Optional[str], Opt
         m_q = re.search(r"\[Queue\]:\s*([a-zA-Z0-9_-]+)", title, re.IGNORECASE)
         if m_q:
             vid = m_q.group(1)
-            return "queue", vid
+            return "queue", vid, issue_num
+
+        # Check for [Delete]: <video_id>
+        m_d = re.search(r"\[Delete\]:\s*([a-zA-Z0-9_-]+)", title, re.IGNORECASE)
+        if m_d:
+            vid = m_d.group(1)
+            return "delete", vid, issue_num
 
         # Check for [Favorite]: <keyword>
         m_f = re.search(r"\[Favorite\]:\s*(.+)", title, re.IGNORECASE)
         if m_f:
             kw = m_f.group(1).strip()
-            return "add_favorite", kw
+            return "add_favorite", kw, issue_num
+
+        # Check for [DeleteFavorite]: <keyword>
+        m_df = re.search(r"\[DeleteFavorite\]:\s*(.+)", title, re.IGNORECASE)
+        if m_df:
+            kw = m_df.group(1).strip()
+            return "delete_favorite", kw, issue_num
 
     except Exception as e:
         logger.warning(f"Error parsing issue event: {e}")
 
-    return None, None
+    return None, None, None
 
 
 def main():
@@ -300,13 +312,29 @@ def main():
     api = GitHubAPI(token=token, repo=gh_repo)
 
     # Check if triggered by an issue (from mobile GitHub Pages)
-    issue_action, issue_arg = handle_issue_event(api, config)
+    issue_action, issue_arg, issue_num = handle_issue_event(api, config)
     if issue_action:
         action = issue_action
-        if action == "queue":
+        if action in ("queue", "delete", "delete_episode"):
             target_video_id = issue_arg
-        elif action in ("add_favorite", "favorite"):
+        elif action in ("add_favorite", "favorite", "delete_favorite"):
             keyword = issue_arg
+
+    # Handle episode deletion
+    if action in ("delete", "delete_episode") and target_video_id:
+        tag = tag_for(target_video_id)
+        logger.info(f"🗑 Deleting episode release: {tag}")
+        try:
+            api.delete_release_by_tag(tag)
+            logger.info(f"✅ Successfully deleted release {tag}")
+        except Exception as e:
+            logger.warning(f"Could not delete release {tag}: {e}")
+        if issue_num:
+            try:
+                api.comment_issue(issue_num, f"Deleted episode `{target_video_id}` from TowerCast.")
+                api.close_issue(issue_num)
+            except Exception as e:
+                logger.warning(f"Could not close issue #{issue_num}: {e}")
 
     # Handle favorite additions
     if action in ("add_favorite", "favorite") and keyword:
@@ -325,6 +353,36 @@ def main():
                 subprocess.run(["git", "push"], check=False)
             except Exception as e:
                 logger.warning(f"Could not commit favorite: {e}")
+        if issue_num:
+            try:
+                api.comment_issue(issue_num, f"Added favorite rule: `{keyword}`.")
+                api.close_issue(issue_num)
+            except Exception as e:
+                pass
+
+    # Handle favorite removals
+    if action in ("delete_favorite",) and keyword:
+        logger.info(f"🗑 Removing favorite keyword: {keyword}")
+        fav = config.setdefault("favorites", {"enabled": True, "shows": []})
+        shows = fav.setdefault("shows", [])
+        fav["shows"] = [s for s in shows if s.get("keyword", "").lower() != keyword.lower()]
+        auto_kws = config.get("auto_include_keywords", [])
+        config["auto_include_keywords"] = [k for k in auto_kws if k.lower() != keyword.lower()]
+        save_config(config)
+        try:
+            subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=False)
+            subprocess.run(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"], check=False)
+            subprocess.run(["git", "add", "config.json"], check=False)
+            subprocess.run(["git", "commit", "-m", f"chore: delete favorite {keyword}"], check=False)
+            subprocess.run(["git", "push"], check=False)
+        except Exception as e:
+            logger.warning(f"Could not commit favorite removal: {e}")
+        if issue_num:
+            try:
+                api.comment_issue(issue_num, f"Removed favorite rule: `{keyword}`.")
+                api.close_issue(issue_num)
+            except Exception as e:
+                pass
 
     # Handle single video queueing
     if action == "queue" and target_video_id:
@@ -337,7 +395,14 @@ def main():
             "thumbnail_url": f"https://i.ytimg.com/vi/{target_video_id}/hq720.jpg",
             "matched_keyword": "Manual Cloud Queue"
         }
-        download_and_upload(target_video_id, video_url, classified, api, config)
+        res = download_and_upload(target_video_id, video_url, classified, api, config)
+        if issue_num:
+            try:
+                status_txt = "Successfully downloaded and added to feed!" if res else "Download failed (may require cookies in CI)."
+                api.comment_issue(issue_num, f"Queue result for `{target_video_id}`: {status_txt}")
+                api.close_issue(issue_num)
+            except Exception as e:
+                pass
 
     # ── Step 1: Existing releases ─────────────────────────────────────────
     logger.info("📚 Checking existing GitHub Releases...")

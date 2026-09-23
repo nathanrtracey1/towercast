@@ -742,6 +742,11 @@
         <span class="network-dot"></span>
         <span>Includes YouTube Videos + Live Streams</span>
       </div>
+
+      <div class="network-badge" style="cursor: pointer;" onclick="openTokenModal()" title="Configure 1-tap mobile actions while Mac is asleep">
+        <span class="network-dot" id="tokenStatusDot" style="background: var(--tertiary);"></span>
+        <span id="tokenStatusText">Mobile 1-Tap Setup</span>
+      </div>
     </div>
 
     <div class="content">
@@ -808,7 +813,7 @@
         % else:
         <div class="episode-grid">
           % for ep in ready_episodes:
-          <div class="ep-card">
+          <div class="ep-card" id="card-ready-{{ ep['id'] }}">
             <div class="ep-thumb">
               <img src="{{ ep.get('thumbnail_url') or '' }}" alt="" loading="lazy">
               % if ep.get('matched_keyword'):
@@ -822,8 +827,11 @@
               <div class="ep-title">{{ ep.get('title', 'Untitled') }}</div>
               <div class="ep-player">
                 <audio controls preload="none">
-                  <source src="/audio/{{ ep.get('audio_filename') }}" type="audio/mp4">
+                  <source src="{{ ep.get('audio_url') or ('/audio/' + str(ep.get('audio_filename', ''))) }}" type="audio/mp4">
                 </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('{{ ep['id'] }}')">🗑 Remove from Feed</button>
               </div>
             </div>
           </div>
@@ -950,6 +958,44 @@
   </div>
 </div>
 
+<!-- Mobile Token Setup Modal -->
+<div class="modal-backdrop" id="modalTokenSetup">
+  <div class="modal-box" style="max-width: 500px;">
+    <div class="modal-title">🔑 Mobile 1-Tap Cloud Setup</div>
+    <div class="modal-sub" style="line-height: 1.5; margin-bottom: 14px;">
+      Configure 1-tap mobile queueing and deletions from anywhere, even when your Mac is asleep or powered off.
+    </div>
+
+    <div style="background: var(--bg-card); border: 1px solid var(--sep); border-radius: var(--r-sm); padding: 12px 14px; margin-bottom: 16px; font-size: 12px; line-height: 1.6; color: var(--secondary);">
+      <strong style="color: var(--label);">Quick 1-Minute Setup:</strong>
+      <ol style="margin: 8px 0 0 18px; padding: 0;">
+        <li>Open <a href="https://github.com/settings/tokens?type=beta" target="_blank" style="color: var(--amber-bright); text-decoration: underline;">GitHub Fine-Grained Personal Access Tokens</a>.</li>
+        <li>Click <strong>Generate new token</strong>.</li>
+        <li>Token name: <code>TowerCast Phone</code>.</li>
+        <li>Repository access: Select <strong>Only select repositories</strong> &rarr; <code>nathanrtracey1/towercast</code>.</li>
+        <li>Permissions &rarr; <strong>Repository permissions</strong> &rarr; <strong>Actions</strong>: select <strong>Access: Read and write</strong>.</li>
+        <li>Click <strong>Generate token</strong> at bottom, copy it, and paste it below.</li>
+      </ol>
+      <div style="margin-top: 10px; font-size: 11px; color: var(--tertiary);">
+        🔒 This token is stored exclusively in this browser's local memory (localStorage) and never uploaded to any remote server.
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="tokenInput">GitHub Personal Access Token</label>
+      <input class="form-input" id="tokenInput" type="password" placeholder="github_pat_..." autocomplete="off">
+    </div>
+
+    <div class="modal-actions" style="justify-content: space-between;">
+      <button type="button" class="action-btn" style="color: #ff6b6b; border-color: rgba(255,107,107,0.3);" onclick="clearGhToken()">Clear Token</button>
+      <div style="display: flex; gap: 8px;">
+        <button type="button" class="action-btn" onclick="closeTokenModal()">Cancel</button>
+        <button type="button" class="action-btn primary" onclick="saveGhTokenFromModal()">Save Token</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -997,22 +1043,61 @@
     return localStorage.getItem('towercast_gh_token') || '';
   }
 
+  function updateTokenBadge() {
+    const token = getGhToken();
+    const dot = document.getElementById('tokenStatusDot');
+    const txt = document.getElementById('tokenStatusText');
+    if (dot && txt) {
+      if (token) {
+        dot.style.background = 'var(--fill-success-fg)';
+        txt.textContent = '1-Tap Cloud Ready';
+      } else {
+        dot.style.background = 'var(--tertiary)';
+        txt.textContent = 'Mobile 1-Tap Setup';
+      }
+    }
+  }
+
   function setGhToken(token) {
     if (token) {
       localStorage.setItem('towercast_gh_token', token.trim());
-      showToast('GitHub token saved for 1-tap cloud actions!');
+      showToast('GitHub token saved for 1-tap mobile actions!');
     } else {
       localStorage.removeItem('towercast_gh_token');
       showToast('GitHub token cleared');
     }
+    updateTokenBadge();
+  }
+
+  function openTokenModal() {
+    const input = document.getElementById('tokenInput');
+    if (input) input.value = getGhToken();
+    document.getElementById('modalTokenSetup').classList.add('active');
+  }
+
+  function closeTokenModal() {
+    document.getElementById('modalTokenSetup').classList.remove('active');
+  }
+
+  function saveGhTokenFromModal() {
+    const val = document.getElementById('tokenInput').value.trim();
+    if (val) {
+      setGhToken(val);
+    } else {
+      clearGhToken();
+    }
+    closeTokenModal();
+  }
+
+  function clearGhToken() {
+    setGhToken('');
+    const input = document.getElementById('tokenInput');
+    if (input) input.value = '';
+    closeTokenModal();
   }
 
   function promptForGhToken() {
-    const curr = getGhToken();
-    const token = prompt('Enter your GitHub Personal Access Token (with Actions/Repo write permission) for 1-tap mobile queueing while your Mac is off:\n\n(Leave blank to clear)', curr);
-    if (token !== null) {
-      setGhToken(token);
-    }
+    openTokenModal();
   }
 
   async function dispatchCloudAction(inputs, issueTitle) {
@@ -1029,11 +1114,11 @@
           body: JSON.stringify({ ref: 'main', inputs: inputs })
         });
         if (res.status === 204) {
-          showToast('⚡ Triggered in GitHub Actions! Updating feed in ~2 mins.');
+          showToast('⚡ Triggered in GitHub Actions! Feed will update in ~2 mins.');
           return true;
         } else {
           const err = await res.json().catch(() => ({}));
-          showToast('GitHub API error: ' + (err.message || res.status));
+          showToast('GitHub API: ' + (err.message || res.status));
         }
       } catch (e) {
         showToast('Network error contacting GitHub');
@@ -1042,13 +1127,46 @@
 
     // Fallback: GitHub Issue trigger (zero tokens required)
     const issueUrl = `https://github.com/${GH_REPO}/issues/new?title=${encodeURIComponent(issueTitle)}&body=${encodeURIComponent("Automated TowerCast cloud action. GitHub Actions will process this and close automatically.")}`;
-    if (confirm("Your Mac is offline. Would you like to trigger this cloud download via GitHub Issue? (Or cancel to enter a GitHub Token for 1-tap)")) {
+    if (confirm("Your Mac is offline. Trigger this action via GitHub Issue? (Or Cancel to open 1-Tap Token setup)")) {
       window.open(issueUrl, '_blank');
-      showToast('Submit the issue on GitHub to trigger download!');
+      showToast('Submit the issue on GitHub to trigger action!');
       return true;
     } else {
-      promptForGhToken();
+      openTokenModal();
       return false;
+    }
+  }
+
+  async function deleteEpisode(videoId) {
+    if (!confirm("Are you sure you want to remove this episode from your podcast feed?")) return;
+
+    const card = document.getElementById('card-ready-' + videoId);
+    if (card) { card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
+
+    if (isCloud) {
+      const ok = await dispatchCloudAction({ action: 'delete', video_id: videoId }, `[Delete]: ${videoId}`);
+      if (!ok && card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/episode/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ video_id: videoId })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('Episode removed from feed');
+        if (card) card.remove();
+        setTimeout(() => location.reload(), 700);
+      } else {
+        showToast(data.error || 'Failed to remove episode');
+        if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+      }
+    } catch (e) {
+      showToast('Error removing episode');
+      if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
     }
   }
 
@@ -1211,6 +1329,9 @@
       showToast('Failed to delete rule');
     }
   }
+
+  // Initialize token status
+  updateTokenBadge();
 </script>
 
 </body>

@@ -162,9 +162,9 @@ class Database:
             return True
         return False
 
-    def skip_episode(self, video_id: str) -> bool:
+    def skip_episode(self, video_id: str, allow_ready: bool = False) -> bool:
         ep = self.get_episode(video_id)
-        if ep and ep["status"] != "ready":
+        if ep and (allow_ready or ep["status"] != "ready"):
             self.mark_status(video_id, "skipped")
             return True
         return False

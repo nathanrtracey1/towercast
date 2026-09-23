@@ -138,5 +138,27 @@ class TestTowerCast(unittest.TestCase):
         self.assertIsNotNone(enclosure)
         self.assertEqual(enclosure.attrib["length"], "25000000")
 
+    def test_delete_and_cloud_actions(self):
+        from github.feed_builder import tag_for, video_id_from_tag, build_release_body, parse_release_body
+
+        tag = tag_for("abc_123")
+        self.assertEqual(tag, "ep-abc_123")
+        self.assertEqual(video_id_from_tag(tag), "abc_123")
+        self.assertIsNone(video_id_from_tag("other-tag"))
+
+        body = build_release_body({"id": "abc_123", "title": "Test Title", "duration": 300})
+        meta = parse_release_body(body)
+        self.assertIsNotNone(meta)
+        self.assertEqual(meta["id"], "abc_123")
+        self.assertEqual(meta["title"], "Test Title")
+
+        # Test local db skip (deletion from feed)
+        self.db.upsert_discovered_episode("del_1", "Delete Me", "url", None, 100, "", "ready")
+        ready_before = self.db.get_ready_episodes()
+        self.assertTrue(any(e["id"] == "del_1" for e in ready_before))
+        self.db.skip_episode("del_1", allow_ready=True)
+        ready_after = self.db.get_ready_episodes()
+        self.assertFalse(any(e["id"] == "del_1" for e in ready_after))
+
 if __name__ == "__main__":
     unittest.main()
