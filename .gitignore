@@ -1,0 +1,19 @@
+# TowerCast — do NOT commit downloaded audio or the database
+data/audio/
+data/towercast.db
+gh-pages-output/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
