@@ -212,6 +212,38 @@ class WebServer:
             success = self.db.skip_episode(video_id)
             return {"ok": success}
 
+        @app.route("/api/add_url", method="POST")
+        def api_add_url():
+            from engine.youtube import parse_youtube_url
+            data = request.json or {}
+            raw_url = data.get("url", "").strip()
+            if not raw_url:
+                response.status = 400
+                return {"error": "Missing URL"}
+
+            video_id = parse_youtube_url(raw_url)
+            if not video_id:
+                response.status = 400
+                return {"error": "Invalid YouTube URL or ID"}
+
+            existing = self.db.get_episode(video_id)
+            if existing and existing["status"] == "ready":
+                return {"ok": True, "already_ready": True, "message": "Episode is already in your feed!"}
+
+            video_url = f"https://www.youtube.com/watch?v={video_id}"
+            self.db.upsert_discovered_episode(
+                video_id=video_id,
+                title=data.get("title") or f"Episode {video_id}",
+                url=video_url,
+                published_at=None,
+                duration=None,
+                thumbnail_url=f"https://i.ytimg.com/vi/{video_id}/hq720.jpg",
+                status="queued",
+                matched_keyword="Added via URL"
+            )
+            self.trigger_background_processing()
+            return {"ok": True, "video_id": video_id, "message": "Episode queued for download!"}
+
         @app.route("/api/episode/delete", method="POST")
         def api_episode_delete():
             data = request.json or {}
@@ -375,8 +407,10 @@ class WebServer:
                 logger.info(f"Background sync triggered (limit={limit})...")
                 _, entries = self.youtube_engine.fetch_channel_entries(limit=limit)
                 new_auto = 0
-                for entry in entries:
-                    classified = self.youtube_engine.classify_entry(entry)
+                new_batch_threshold = 15
+                for idx, entry in enumerate(entries):
+                    is_backlog = (idx >= new_batch_threshold) if limit > 30 else False
+                    classified = self.youtube_engine.classify_entry(entry, is_backlog=is_backlog)
                     inserted = self.db.upsert_discovered_episode(
                         video_id=classified["id"],
                         title=classified["title"],

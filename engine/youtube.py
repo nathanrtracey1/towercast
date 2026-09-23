@@ -5,10 +5,29 @@ Supports both auto_include_keywords (unlimited) and favorites.shows (with per-sy
 """
 import json
 import logging
+import re
 import subprocess
 from typing import Dict, List, Optional, Tuple, Any
 
 logger = logging.getLogger(__name__)
+
+
+def parse_youtube_url(url_or_id: str) -> Optional[str]:
+    """Extracts the 11-character YouTube video ID from a URL or raw ID."""
+    if not url_or_id:
+        return None
+    raw = url_or_id.strip()
+    if re.fullmatch(r"[a-zA-Z0-9_-]{11}", raw):
+        return raw
+    patterns = [
+        r"(?:v=|\/v\/|youtu\.be\/|\/embed\/|\/live\/|\/shorts\/)([a-zA-Z0-9_-]{11})",
+        r"[?&]v=([a-zA-Z0-9_-]{11})",
+    ]
+    for p in patterns:
+        m = re.search(p, raw)
+        if m:
+            return m.group(1)
+    return None
 
 
 class YouTubeEngine:
@@ -19,12 +38,14 @@ class YouTubeEngine:
         exclude_shorts: bool = True,
         shorts_max_seconds: int = 60,
         favorites_config: Optional[Dict[str, Any]] = None,
+        auto_download_all_new: bool = False,
     ):
         self.channel_url = channel_url
         self.auto_keywords = [k.strip().lower() for k in auto_keywords if k.strip()]
         self.exclude_shorts = exclude_shorts
         self.shorts_max_seconds = shorts_max_seconds
         self.favorites_config = favorites_config or {}
+        self.auto_download_all_new = auto_download_all_new
 
         # Flatten all favorites keywords for fast lookup
         self._favorites_keywords: List[str] = []
@@ -141,11 +162,11 @@ class YouTubeEngine:
                 return kw
         return None
 
-    def classify_entry(self, entry: Dict[str, Any]) -> Dict[str, Any]:
+    def classify_entry(self, entry: Dict[str, Any], is_backlog: bool = False) -> Dict[str, Any]:
         """
         Classifies a video entry:
-          target_status = 'queued'  → auto-download (auto_include or favorites)
-          target_status = 'pending' → manual pick
+          target_status = 'queued'  → auto-download (all new videos or matched keyword)
+          target_status = 'pending' → backlog manual pick
           target_status = 'skipped' → Short
         """
         title = entry.get("title", "")
@@ -165,6 +186,9 @@ class YouTubeEngine:
             target_status = "skipped"
         elif matched_kw:
             target_status = "queued"
+        elif self.auto_download_all_new and not is_backlog:
+            target_status = "queued"
+            matched_kw = "New Episode"
         else:
             target_status = "pending"
 

@@ -160,5 +160,28 @@ class TestTowerCast(unittest.TestCase):
         ready_after = self.db.get_ready_episodes()
         self.assertFalse(any(e["id"] == "del_1" for e in ready_after))
 
+    def test_parse_youtube_url_and_auto_grab(self):
+        from engine.youtube import parse_youtube_url, YouTubeEngine
+
+        self.assertEqual(parse_youtube_url("1CzC9NfDCWA"), "1CzC9NfDCWA")
+        self.assertEqual(parse_youtube_url("https://www.youtube.com/watch?v=1CzC9NfDCWA"), "1CzC9NfDCWA")
+        self.assertEqual(parse_youtube_url("https://youtu.be/1CzC9NfDCWA?si=xyz"), "1CzC9NfDCWA")
+        self.assertEqual(parse_youtube_url("https://www.youtube.com/live/txdTXq3xJ3s"), "txdTXq3xJ3s")
+        self.assertEqual(parse_youtube_url("https://www.youtube.com/shorts/abc12345678"), "abc12345678")
+        self.assertIsNone(parse_youtube_url("not_a_valid_url_at_all"))
+
+        yt_auto = YouTubeEngine(
+            channel_url="https://youtube.com/@TheDiceTower",
+            auto_keywords=[],
+            auto_download_all_new=True
+        )
+        new_ep = {"id": "new1", "title": "Random Cool Board Game Review", "duration": 900}
+        c_new = yt_auto.classify_entry(new_ep, is_backlog=False)
+        self.assertEqual(c_new["target_status"], "queued")
+        self.assertEqual(c_new["matched_keyword"], "New Episode")
+
+        c_backlog = yt_auto.classify_entry(new_ep, is_backlog=True)
+        self.assertEqual(c_backlog["target_status"], "pending")
+
 if __name__ == "__main__":
     unittest.main()

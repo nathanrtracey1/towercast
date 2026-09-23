@@ -1,19 +1,22 @@
 name: TowerCast Sync
 
 on:
-  # Run daily at 10:00 UTC (6:00 AM EDT / 7:00 AM EST)
+  # Run every 3 hours to capture new uploads and live streams
   schedule:
-    - cron: '0 10 * * *'
+    - cron: '0 */3 * * *'
 
   # Manual dispatch or mobile GitHub Pages trigger
   workflow_dispatch:
     inputs:
       action:
-        description: 'Action (sync, queue, delete, add_favorite, delete_favorite)'
+        description: 'Action (sync, queue, add_url, delete, add_favorite, delete_favorite)'
         required: false
         default: 'sync'
       video_id:
-        description: 'YouTube Video ID to download (if action=queue)'
+        description: 'YouTube Video ID or URL to download'
+        required: false
+      url:
+        description: 'YouTube Video URL to download'
         required: false
       keyword:
         description: 'Keyword for favorite rule'
@@ -72,7 +75,7 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           SCAN_LIMIT: ${{ github.event.inputs.scan_limit || '30' }}
           ACTION: ${{ github.event.inputs.action || 'sync' }}
-          VIDEO_ID: ${{ github.event.inputs.video_id || '' }}
+          VIDEO_ID: ${{ github.event.inputs.url || github.event.inputs.video_id || '' }}
           KEYWORD: ${{ github.event.inputs.keyword || '' }}
           YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
         run: python3 github/feed_builder.py

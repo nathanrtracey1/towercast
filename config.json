@@ -1,5 +1,6 @@
 {
   "channel_url": "https://www.youtube.com/@TheDiceTower/videos",
+  "auto_download_all_new": true,
   "auto_include_keywords": [
     "Board Game Breakfast",
     "Dice Tower News",

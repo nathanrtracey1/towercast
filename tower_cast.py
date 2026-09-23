@@ -46,6 +46,7 @@ def get_components(config: Dict[str, Any]):
         exclude_shorts=config.get("exclude_shorts", True),
         shorts_max_seconds=config.get("shorts_max_seconds", 60),
         favorites_config=config.get("favorites", {}),
+        auto_download_all_new=config.get("auto_download_all_new", True),
     )
     dl = Downloader(
         media_dir=MEDIA_DIR,
@@ -72,8 +73,10 @@ def cmd_sync(args, config):
     new_pending = 0
     shorts_skipped = 0
 
-    for entry in entries:
-        classified = yt.classify_entry(entry)
+    new_batch_threshold = 15
+    for idx, entry in enumerate(entries):
+        is_backlog = (idx >= new_batch_threshold) if getattr(args, "backlog", False) or limit > 30 else False
+        classified = yt.classify_entry(entry, is_backlog=is_backlog)
         vid_id = classified["id"]
         title = classified["title"]
 
@@ -242,6 +245,7 @@ def start_tunnel_background(port: int, config: Dict[str, Any]):
 
     def run_tunnel():
         import re
+        import subprocess
         cmd = [bin_path, "tunnel", "--url", f"http://localhost:{port}"]
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         for line in iter(proc.stdout.readline, ''):

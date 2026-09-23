@@ -27,7 +27,7 @@ from typing import Dict, List, Any, Optional, Tuple
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-from engine.youtube import YouTubeEngine
+from engine.youtube import YouTubeEngine, parse_youtube_url
 from engine.downloader import Downloader
 from engine.feed_generator import FeedGenerator, format_duration, parse_to_rfc822
 from github.github_api import GitHubAPI
@@ -261,10 +261,11 @@ def handle_issue_event(api: GitHubAPI, config: Dict) -> Tuple[Optional[str], Opt
         issue_num = issue.get("number")
         logger.info(f"Processing Issue #{issue_num}: {title}")
 
-        # Check for [Queue]: <video_id>
-        m_q = re.search(r"\[Queue\]:\s*([a-zA-Z0-9_-]+)", title, re.IGNORECASE)
+        # Check for [Queue]: <video_id_or_url> or [AddUrl]: <url>
+        m_q = re.search(r"\[(?:Queue|AddUrl)\]:\s*(\S+)", title, re.IGNORECASE)
         if m_q:
-            vid = m_q.group(1)
+            raw_target = m_q.group(1).strip()
+            vid = parse_youtube_url(raw_target) or raw_target
             return "queue", vid, issue_num
 
         # Check for [Delete]: <video_id>
@@ -315,10 +316,13 @@ def main():
     issue_action, issue_arg, issue_num = handle_issue_event(api, config)
     if issue_action:
         action = issue_action
-        if action in ("queue", "delete", "delete_episode"):
+        if action in ("queue", "add_url", "delete", "delete_episode"):
             target_video_id = issue_arg
         elif action in ("add_favorite", "favorite", "delete_favorite"):
             keyword = issue_arg
+
+    if target_video_id:
+        target_video_id = parse_youtube_url(target_video_id) or target_video_id
 
     # Handle episode deletion
     if action in ("delete", "delete_episode") and target_video_id:
@@ -416,6 +420,7 @@ def main():
         exclude_shorts=config.get("exclude_shorts", True),
         shorts_max_seconds=config.get("shorts_max_seconds", 60),
         favorites_config=config.get("favorites", {}),
+        auto_download_all_new=config.get("auto_download_all_new", True),
     )
 
     logger.info(f"📡 Scanning uploads & live streams (limit={scan_limit})...")
@@ -424,16 +429,20 @@ def main():
         _, entries = yt.fetch_channel_entries(limit=scan_limit)
         logger.info(f"Found {len(entries)} total entries across uploads and live streams.")
 
-        favorites_counts: Dict[str, int] = {}
-        for entry in entries:
-            classified = yt.classify_entry(entry)
+        # First 15 entries are considered new uploads/streams for auto-grab;
+        # entries beyond that are categorized into the Backlog tab.
+        new_batch_threshold = 15
+
+        for idx, entry in enumerate(entries):
+            is_backlog = (idx >= new_batch_threshold)
+            classified = yt.classify_entry(entry, is_backlog=is_backlog)
             vid_id = classified["id"]
 
             if classified["is_short"] or vid_id in existing:
                 continue
 
             if classified["target_status"] == "queued":
-                # Auto-download
+                # Auto-download new episodes or matched shows
                 result = download_and_upload(
                     video_id=vid_id,
                     video_url=classified["url"],
@@ -441,8 +450,10 @@ def main():
                     api=api,
                     config=config,
                 )
+                if result:
+                    existing[vid_id] = result
             else:
-                # Add to pending list for review
+                # Add to Backlog list for on-demand downloading
                 pending_entries.append(classified)
 
     except Exception as e:

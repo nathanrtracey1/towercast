@@ -664,8 +664,8 @@
       <div class="nav-section-label">Library</div>
 
       <button class="nav-item active" onclick="switchTab('pending', this)" id="navPending">
-        <span class="nav-item-icon">📬</span>
-        Needs Your Attention
+        <span class="nav-item-icon">📚</span>
+        Backlog & Archives
         % if len(pending_episodes) > 0:
         <span class="nav-badge">{{ len(pending_episodes) }}</span>
         % end
@@ -675,6 +675,11 @@
         <span class="nav-item-icon">🎧</span>
         In Your Feed
         <span class="nav-badge muted">{{ len(ready_episodes) }}</span>
+      </button>
+
+      <button class="nav-item" onclick="openAddUrlModal()" style="color: var(--amber-bright); font-weight: 600;">
+        <span class="nav-item-icon">➕</span>
+        Add from YouTube URL
       </button>
 
       % if queued_episodes:
@@ -731,16 +736,16 @@
       </div>
       <div class="stat-tile">
         <div class="stat-tile-value" style="color: var(--amber);">{{ len(pending_episodes) }}</div>
-        <div class="stat-tile-label">Waiting for review</div>
+        <div class="stat-tile-label">Older in backlog</div>
       </div>
       <div class="stat-tile">
         <div class="stat-tile-value" style="color: var(--secondary);">{{ len(auto_keywords) + len(favorites_shows) }}</div>
         <div class="stat-tile-label">Active show rules</div>
       </div>
 
-      <div class="network-badge">
-        <span class="network-dot"></span>
-        <span>Includes YouTube Videos + Live Streams</span>
+      <div class="network-badge" style="cursor: pointer; background: var(--amber-dim); border-color: var(--amber-border); color: var(--amber-bright);" onclick="openAddUrlModal()" title="Add any video or stream by YouTube URL">
+        <span>➕</span>
+        <span style="font-weight: 600;">Add from URL</span>
       </div>
 
       <div class="network-badge" style="cursor: pointer;" onclick="openTokenModal()" title="Configure 1-tap mobile actions while Mac is asleep">
@@ -751,26 +756,24 @@
 
     <div class="content">
 
-      <!-- ── Pending Tab ── -->
+      <!-- ── Backlog Tab ── -->
       <div class="tab-panel active" id="panelPending">
         <div class="section-header">
           <div>
-            <div class="section-title">Needs Your Attention</div>
-            <div class="section-desc">Videos not caught by auto-rules. Pick what you want to hear or dismiss the rest.</div>
+            <div class="section-title">Backlog & Archives</div>
+            <div class="section-desc">All new videos are captured automatically. Browse historical episodes and live streams below to download on-demand.</div>
           </div>
           <div class="btn-group">
-            <button class="action-btn" onclick="triggerSync(150)">📚 Pull More Backlog</button>
-            % if pending_episodes:
-            <button class="action-btn primary" onclick="queueAllPending()">Add All to Feed</button>
-            % end
+            <button class="action-btn primary" onclick="openAddUrlModal()">➕ Add from URL</button>
+            <button class="action-btn" onclick="triggerSync(150)">📚 Scan Deep Backlog (150)</button>
           </div>
         </div>
 
         % if not pending_episodes:
         <div class="empty-state">
-          <div class="empty-icon">🎉</div>
-          <div class="empty-title">All caught up!</div>
-          <div class="empty-body">No pending videos waiting for your choice. Click "Scan Backlog" to discover older episodes from the channel.</div>
+          <div class="empty-icon">📚</div>
+          <div class="empty-title">Backlog is clear</div>
+          <div class="empty-body">Click "Scan Deep Backlog" to discover older episodes from the channel, or paste any video link via "Add from URL".</div>
         </div>
         % else:
         <div class="episode-grid">
@@ -785,8 +788,8 @@
             <div class="ep-body">
               <div class="ep-title">{{ ep.get('title', 'Untitled') }}</div>
               <div class="ep-actions">
-                <button class="ep-btn ep-btn-add" onclick="queueVideo('{{ ep['id'] }}')">Add to Podcast</button>
-                <button class="ep-btn ep-btn-skip" onclick="skipVideo('{{ ep['id'] }}')">Skip</button>
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('{{ ep['id'] }}')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('{{ ep['id'] }}')">Dismiss</button>
               </div>
             </div>
           </div>
@@ -958,6 +961,26 @@
   </div>
 </div>
 
+<!-- Add From URL Modal -->
+<div class="modal-backdrop" id="modalAddUrl">
+  <div class="modal-box">
+    <div class="modal-title">➕ Add from YouTube URL</div>
+    <div class="modal-sub">Paste any YouTube video or livestream link to download the audio and add it to your podcast feed.</div>
+
+    <form onsubmit="submitAddUrl(event)">
+      <div class="form-group">
+        <label class="form-label" for="inputVideoUrl">YouTube Video or Stream URL</label>
+        <input class="form-input" id="inputVideoUrl" placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..." required autofocus>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="action-btn" onclick="closeAddUrlModal()">Cancel</button>
+        <button type="submit" class="action-btn primary" id="btnAddUrlSubmit">⬇️ Download to Feed</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Mobile Token Setup Modal -->
 <div class="modal-backdrop" id="modalTokenSetup">
   <div class="modal-box" style="max-width: 500px;">
@@ -1098,6 +1121,62 @@
 
   function promptForGhToken() {
     openTokenModal();
+  }
+
+  // ─── Add from URL ──────────────────────────────────────
+  function openAddUrlModal() {
+    document.getElementById('modalAddUrl').classList.add('active');
+    const inp = document.getElementById('inputVideoUrl');
+    if (inp) { inp.value = ''; inp.focus(); }
+  }
+
+  function closeAddUrlModal() {
+    document.getElementById('modalAddUrl').classList.remove('active');
+  }
+
+  function parseYoutubeId(urlOrId) {
+    if (!urlOrId) return '';
+    const raw = urlOrId.trim();
+    if (/^[a-zA-Z0-9_-]{11}$/.test(raw)) return raw;
+    const m = raw.match(/(?:v=|\/v\/|youtu\.be\/|\/embed\/|\/live\/|\/shorts\/)([a-zA-Z0-9_-]{11})/i) || raw.match(/[?&]v=([a-zA-Z0-9_-]{11})/i);
+    return m ? m[1] : '';
+  }
+
+  async function submitAddUrl(e) {
+    e.preventDefault();
+    const val = document.getElementById('inputVideoUrl').value.trim();
+    if (!val) return;
+
+    const vidId = parseYoutubeId(val);
+    if (!vidId) {
+      showToast('Could not recognize a valid YouTube video ID');
+      return;
+    }
+
+    closeAddUrlModal();
+
+    if (isCloud) {
+      await dispatchCloudAction({ action: 'queue', video_id: vidId }, `[AddUrl]: ${vidId}`);
+      return;
+    }
+
+    try {
+      showToast('Queueing episode for download...');
+      const res = await fetch('/api/add_url', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ url: val, video_id: vidId })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast(data.message || 'Queued for download!');
+        setTimeout(() => location.reload(), 1500);
+      } else {
+        showToast(data.error || 'Failed to add URL');
+      }
+    } catch (e) {
+      showToast('Failed to add URL');
+    }
   }
 
   async function dispatchCloudAction(inputs, issueTitle) {

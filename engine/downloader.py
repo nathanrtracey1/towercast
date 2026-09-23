@@ -63,8 +63,8 @@ class Downloader:
         if self.cookies_file and os.path.exists(self.cookies_file):
             cmd.extend(["--cookies", self.cookies_file])
         else:
-            # Fallback client configuration when no cookies are provided (avoids bot challenge)
-            cmd.extend(["--extractor-args", "youtube:player_client=android,web"])
+            # Fallback client configuration when no cookies are provided (visionos avoids bot challenge)
+            cmd.extend(["--extractor-args", "youtube:player_client=visionos,web"])
 
         # Enable JS runtime if node is installed and deno isn't detected
         if shutil.which("node") and not shutil.which("deno"):
