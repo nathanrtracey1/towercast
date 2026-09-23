@@ -136,6 +136,14 @@ class GitHubAPI:
                 return None
             raise
 
+    # ── Issues ────────────────────────────────────────────────────────────
+
+    def comment_issue(self, issue_number: int, body: str) -> Dict:
+        return self._request("POST", f"/repos/{self.repo}/issues/{issue_number}/comments", data={"body": body})
+
+    def close_issue(self, issue_number: int) -> Dict:
+        return self._request("PATCH", f"/repos/{self.repo}/issues/{issue_number}", data={"state": "closed"})
+
     # ── Repo ─────────────────────────────────────────────────────────────
 
     def get_repo(self) -> Dict:

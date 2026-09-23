@@ -2,75 +2,64 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>TowerCast</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>TowerCast Studio</title>
   <style>
     /* ─── Design System ────────────────────────────────────────────── */
     :root {
-      /* Base palette — ultra-dark, not pure black. Like a dimmed Cinema display. */
       --bg-base:       #0a0a0c;
       --bg-elevated:   #111116;
       --bg-overlay:    #18181f;
 
-      /* Material: thin dark glass — HIG "thin material" adapted for web */
-      --material-bg:      rgba(22, 22, 28, 0.72);
-      --material-border:  rgba(255, 255, 255, 0.07);
-      --material-hover:   rgba(255, 255, 255, 0.04);
+      --material-bg:      rgba(22, 22, 28, 0.75);
+      --material-border:  rgba(255, 255, 255, 0.08);
 
-      /* Amber accent — the color of a worn wooden dice tray, not blue */
+      --sep:           rgba(255, 255, 255, 0.08);
+      --sep-subtle:    rgba(255, 255, 255, 0.04);
+
       --amber:         #d4883a;
-      --amber-bright:  #f0a050;
-      --amber-dim:     rgba(212, 136, 58, 0.15);
-      --amber-border:  rgba(212, 136, 58, 0.30);
+      --amber-bright:  #e09545;
+      --amber-dim:     rgba(212, 136, 58, 0.16);
+      --amber-border:  rgba(212, 136, 58, 0.32);
 
-      /* Semantic text — mirrors Apple's label/secondary/tertiary layering */
-      --label:          rgba(255, 255, 255, 0.92);
-      --secondary:      rgba(255, 255, 255, 0.55);
-      --tertiary:       rgba(255, 255, 255, 0.28);
-      --quaternary:     rgba(255, 255, 255, 0.12);
+      --label:         rgba(255, 255, 255, 0.92);
+      --secondary:     rgba(255, 255, 255, 0.58);
+      --tertiary:      rgba(255, 255, 255, 0.36);
 
-      /* Semantic fills */
-      --fill-primary:    rgba(255, 255, 255, 0.10);
-      --fill-secondary:  rgba(255, 255, 255, 0.06);
-      --fill-success:    rgba(52, 199, 89, 0.18);
-      --fill-success-fg: #34c759;
-      --fill-warning:    rgba(255, 159, 10, 0.18);
-      --fill-warning-fg: #ff9f0a;
+      --fill-primary:  rgba(255, 255, 255, 0.07);
+      --fill-secondary:rgba(255, 255, 255, 0.11);
+      --fill-danger-dim: rgba(239, 68, 68, 0.16);
+      --fill-danger-fg: #f87171;
 
-      /* Separator */
-      --sep: rgba(255, 255, 255, 0.07);
+      --fill-success-fg:#34d399;
+      --fill-warning-fg:#fbbf24;
 
-      /* Type — SF Pro stack */
-      --font: -apple-system, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
-      --font-mono: "SF Mono", "Fira Code", ui-monospace, monospace;
-
-      /* Radii — HIG: rounded rectangle, corner radius scales with element size */
       --r-sm:  8px;
-      --r-md:  12px;
-      --r-lg:  16px;
-      --r-xl:  20px;
+      --r-md: 12px;
+      --r-lg: 16px;
+
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+      --font-mono: "SF Mono", Menlo, Consolas, monospace;
     }
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    html, body {
-      height: 100%;
+    body {
       background: var(--bg-base);
       color: var(--label);
       font-family: var(--font);
-      font-size: 15px;
-      line-height: 1.5;
+      font-size: 14px;
+      line-height: 1.45;
       -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
-
-    /* ─── Layout Shell ──────────────────────────────────────────────── */
-    .shell {
-      display: grid;
-      grid-template-columns: 240px 1fr;
-      grid-template-rows: 100vh;
       height: 100vh;
       overflow: hidden;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      height: 100vh;
     }
 
     /* ─── Sidebar ───────────────────────────────────────────────────── */
@@ -80,35 +69,37 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      user-select: none;
     }
 
     .sidebar-header {
-      padding: 24px 20px 0;
+      padding: 18px 16px 14px;
+      border-bottom: 1px solid var(--sep);
     }
 
     .wordmark {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 24px;
     }
 
     .wordmark-icon {
-      width: 34px;
-      height: 34px;
-      background: var(--amber-dim);
-      border: 1px solid var(--amber-border);
-      border-radius: var(--r-sm);
+      width: 28px;
+      height: 28px;
+      background: var(--amber);
+      border-radius: 7px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 17px;
+      font-size: 15px;
       flex-shrink: 0;
+      color: #000;
     }
 
     .wordmark-text {
-      font-size: 17px;
-      font-weight: 600;
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 700;
       letter-spacing: -0.021em;
       color: var(--label);
     }
@@ -116,34 +107,35 @@
     .wordmark-sub {
       font-size: 11px;
       color: var(--tertiary);
-      letter-spacing: 0.01em;
       margin-top: 1px;
     }
 
-    /* Feed URL pill */
     .feed-pill {
-      margin: 0 16px 20px;
-      background: var(--bg-overlay);
+      margin: 12px 14px 6px;
+      background: rgba(0, 0, 0, 0.4);
       border: 1px solid var(--sep);
-      border-radius: var(--r-sm);
+      border-radius: var(--r-md);
       padding: 10px 12px;
     }
 
     .feed-pill-label {
       font-size: 10px;
       font-weight: 600;
-      letter-spacing: 0.06em;
-      color: var(--tertiary);
+      letter-spacing: 0.08em;
       text-transform: uppercase;
-      margin-bottom: 6px;
+      color: var(--tertiary);
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
     }
 
     .feed-pill-url {
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 11px;
       color: var(--amber);
-      word-break: break-all;
-      line-height: 1.45;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
       margin-bottom: 8px;
     }
 
@@ -154,21 +146,19 @@
       border-radius: var(--r-sm);
       color: var(--amber-bright);
       font-family: var(--font);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       padding: 6px 10px;
       cursor: pointer;
       transition: background 0.15s;
-      letter-spacing: -0.01em;
     }
 
-    .feed-pill-copy:hover { background: rgba(212, 136, 58, 0.24); }
+    .feed-pill-copy:hover { background: rgba(212, 136, 58, 0.28); }
 
-    /* Sidebar nav */
     .sidebar-nav {
       flex: 1;
       overflow-y: auto;
-      padding: 4px 8px;
+      padding: 6px 8px;
     }
 
     .nav-section-label {
@@ -177,7 +167,7 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--tertiary);
-      padding: 12px 8px 6px;
+      padding: 10px 8px 4px;
     }
 
     .nav-item {
@@ -187,11 +177,10 @@
       padding: 7px 10px;
       border-radius: var(--r-sm);
       cursor: pointer;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 500;
       color: var(--secondary);
       transition: background 0.1s, color 0.1s;
-      position: relative;
       border: none;
       background: none;
       width: 100%;
@@ -203,11 +192,12 @@
     .nav-item.active {
       background: var(--amber-dim);
       color: var(--amber-bright);
+      font-weight: 600;
     }
 
     .nav-item-icon {
       font-size: 15px;
-      width: 20px;
+      width: 18px;
       text-align: center;
     }
 
@@ -225,13 +215,15 @@
 
     .nav-badge.muted {
       background: var(--fill-primary);
-      color: var(--tertiary);
+      color: var(--secondary);
     }
 
-    /* Sidebar footer */
     .sidebar-footer {
-      padding: 12px 16px 20px;
+      padding: 12px 14px 16px;
       border-top: 1px solid var(--sep);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
 
     .sync-btn {
@@ -241,161 +233,159 @@
       border-radius: var(--r-sm);
       color: var(--label);
       font-family: var(--font);
-      font-size: 13px;
-      font-weight: 500;
-      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 7px 10px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
-      transition: background 0.15s;
-      letter-spacing: -0.01em;
+      transition: background 0.12s;
     }
 
     .sync-btn:hover { background: var(--fill-secondary); }
-    .sync-btn:disabled { opacity: 0.5; cursor: default; }
+    .sync-btn.accent { background: var(--amber-dim); border-color: var(--amber-border); color: var(--amber-bright); }
 
-    /* ─── Main Content ──────────────────────────────────────────────── */
+    /* ─── Main Content ───────────────────────────────────────────────── */
     .main {
       display: flex;
       flex-direction: column;
+      height: 100vh;
       overflow: hidden;
       background: var(--bg-base);
     }
 
-    /* Toolbar above content */
-    .toolbar {
-      flex-shrink: 0;
-      padding: 18px 28px 0;
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-    }
-
-    .page-title {
-      font-size: 28px;
-      font-weight: 700;
-      letter-spacing: -0.021em;
-      color: var(--label);
-    }
-
-    .page-subtitle {
-      font-size: 14px;
-      color: var(--secondary);
-      margin-top: 2px;
-    }
-
-    .toolbar-actions {
-      display: flex;
-      gap: 8px;
-    }
-
-    /* ─── Stats strip ───────────────────────────────────────────────── */
     .stats-strip {
-      flex-shrink: 0;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
       gap: 12px;
-      padding: 16px 28px;
+      border-bottom: 1px solid var(--sep);
+      flex-wrap: wrap;
     }
 
     .stat-tile {
       background: var(--material-bg);
-      backdrop-filter: blur(24px) saturate(180%);
-      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       border: 1px solid var(--material-border);
       border-radius: var(--r-md);
-      padding: 14px 16px;
+      padding: 10px 16px;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
     }
 
     .stat-tile-value {
-      font-size: 28px;
+      font-family: var(--font-display);
+      font-size: 20px;
       font-weight: 700;
-      letter-spacing: -0.032em;
-      line-height: 1;
-      margin-bottom: 4px;
+      letter-spacing: -0.02em;
     }
 
     .stat-tile-label {
       font-size: 12px;
       color: var(--secondary);
-      font-weight: 500;
     }
 
-    /* ─── Content area ──────────────────────────────────────────────── */
+    .network-badge {
+      margin-left: auto;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--sep);
+      border-radius: var(--r-sm);
+      padding: 6px 12px;
+      font-size: 11px;
+      color: var(--secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .network-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--fill-success-fg);
+    }
+
     .content {
       flex: 1;
       overflow-y: auto;
-      padding: 0 28px 40px;
+      padding: 24px;
     }
 
-    /* Section header */
     .section-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 16px;
-      padding-top: 4px;
+      margin-bottom: 20px;
     }
 
     .section-title {
-      font-size: 19px;
-      font-weight: 600;
-      letter-spacing: -0.018em;
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.021em;
     }
 
-    .section-action {
+    .section-desc {
       font-size: 13px;
-      font-weight: 500;
-      color: var(--amber);
-      cursor: pointer;
-      background: none;
-      border: none;
-      padding: 0;
+      color: var(--secondary);
+      margin-top: 4px;
     }
 
-    .section-action:hover { color: var(--amber-bright); }
+    .btn-group {
+      display: flex;
+      gap: 8px;
+    }
 
-    /* ─── Episode Grid ──────────────────────────────────────────────── */
+    .action-btn {
+      background: var(--fill-primary);
+      border: 1px solid var(--sep);
+      border-radius: var(--r-sm);
+      color: var(--label);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.12s;
+    }
+
+    .action-btn:hover { background: var(--fill-secondary); }
+    .action-btn.primary { background: var(--amber); color: #000; border: none; }
+    .action-btn.primary:hover { background: var(--amber-bright); }
+
+    /* Episode grid */
     .episode-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-      gap: 14px;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
     }
 
-    /* ─── Episode Card ──────────────────────────────────────────────── */
     .ep-card {
       background: var(--material-bg);
-      backdrop-filter: blur(24px) saturate(180%);
-      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       border: 1px solid var(--material-border);
-      border-radius: var(--r-lg);
+      border-radius: var(--r-md);
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      /* Single orchestrated load entrance per the skill */
-      animation: fadeUp 0.3s ease both;
+      transition: transform 0.15s, border-color 0.15s;
     }
 
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(8px); }
-      to   { opacity: 1; transform: translateY(0); }
+    .ep-card:hover {
+      border-color: rgba(255, 255, 255, 0.18);
     }
-
-    /* Stagger via nth-child */
-    .ep-card:nth-child(1)  { animation-delay: 0.02s; }
-    .ep-card:nth-child(2)  { animation-delay: 0.05s; }
-    .ep-card:nth-child(3)  { animation-delay: 0.08s; }
-    .ep-card:nth-child(4)  { animation-delay: 0.11s; }
-    .ep-card:nth-child(5)  { animation-delay: 0.14s; }
-    .ep-card:nth-child(6)  { animation-delay: 0.17s; }
-    .ep-card:nth-child(n+7){ animation-delay: 0.20s; }
 
     .ep-thumb {
       position: relative;
       aspect-ratio: 16 / 9;
-      background: var(--bg-overlay);
+      background: #000;
       overflow: hidden;
     }
 
@@ -414,13 +404,11 @@
       color: #fff;
       font-size: 11px;
       font-weight: 600;
-      padding: 2px 7px;
-      border-radius: 5px;
-      letter-spacing: 0.02em;
+      padding: 2px 6px;
+      border-radius: 4px;
       font-variant-numeric: tabular-nums;
     }
 
-    /* Auto-match ribbon */
     .ep-ribbon {
       position: absolute;
       top: 8px;
@@ -429,13 +417,13 @@
       color: #000;
       font-size: 10px;
       font-weight: 700;
-      padding: 2px 7px;
-      border-radius: 5px;
-      letter-spacing: 0.04em;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.03em;
     }
 
     .ep-body {
-      padding: 14px 14px 12px;
+      padding: 12px 14px 14px;
       flex: 1;
       display: flex;
       flex-direction: column;
@@ -446,7 +434,6 @@
       font-size: 14px;
       font-weight: 600;
       line-height: 1.35;
-      letter-spacing: -0.010em;
       color: var(--label);
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -454,135 +441,197 @@
       overflow: hidden;
     }
 
-    /* Actions */
     .ep-actions {
       display: flex;
-      gap: 7px;
+      gap: 8px;
       margin-top: auto;
     }
 
     .ep-btn {
       flex: 1;
       border-radius: var(--r-sm);
-      font-family: var(--font);
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       padding: 7px 10px;
       cursor: pointer;
       border: none;
       transition: opacity 0.12s;
-      letter-spacing: -0.01em;
     }
 
-    .ep-btn:active { opacity: 0.75; }
-
-    .ep-btn-add {
-      background: var(--amber);
-      color: #000;
-    }
-
+    .ep-btn-add { background: var(--amber); color: #000; }
     .ep-btn-add:hover { background: var(--amber-bright); }
-
-    .ep-btn-skip {
-      background: var(--fill-primary);
-      color: var(--secondary);
-      flex: 0 0 auto;
-      padding: 7px 12px;
-    }
-
+    .ep-btn-skip { background: var(--fill-primary); color: var(--secondary); flex: 0 0 auto; padding: 7px 12px; }
     .ep-btn-skip:hover { background: var(--fill-secondary); color: var(--label); }
 
-    /* Audio player for ready episodes */
-    .ep-player {
-      margin-top: 2px;
+    .ep-player { margin-top: 4px; }
+    .ep-player audio { width: 100%; height: 32px; border-radius: 6px; accent-color: var(--amber); }
+
+    /* Rules Table / Cards */
+    .rules-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 780px;
     }
 
-    .ep-player audio {
-      width: 100%;
-      height: 32px;
-      border-radius: 6px;
-      accent-color: var(--amber);
+    .rule-card {
+      background: var(--material-bg);
+      border: 1px solid var(--material-border);
+      border-radius: var(--r-md);
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
     }
 
-    /* ─── Empty State ───────────────────────────────────────────────── */
-    .empty-state {
-      text-align: center;
-      padding: 64px 20px;
+    .rule-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
 
-    .empty-icon {
-      font-size: 44px;
-      margin-bottom: 16px;
-      opacity: 0.4;
-    }
-
-    .empty-title {
-      font-size: 19px;
+    .rule-keyword {
+      font-size: 15px;
       font-weight: 600;
-      letter-spacing: -0.018em;
+      color: var(--label);
+    }
+
+    .rule-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 20px;
+      background: var(--fill-primary);
+      color: var(--secondary);
+    }
+
+    .rule-badge.auto {
+      background: var(--amber-dim);
+      color: var(--amber-bright);
+      border: 1px solid var(--amber-border);
+    }
+
+    .rule-delete-btn {
+      background: none;
+      border: 1px solid var(--sep);
+      color: var(--fill-danger-fg);
+      font-size: 12px;
+      padding: 5px 10px;
+      border-radius: var(--r-sm);
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+
+    .rule-delete-btn:hover { background: var(--fill-danger-dim); border-color: rgba(239, 68, 68, 0.3); }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-backdrop.active { display: flex; }
+
+    .modal-box {
+      background: var(--bg-overlay);
+      border: 1px solid var(--sep);
+      border-radius: var(--r-lg);
+      padding: 24px;
+      width: 100%;
+      max-width: 440px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+    }
+
+    .modal-title {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .modal-sub {
+      font-size: 12px;
+      color: var(--secondary);
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--secondary);
       margin-bottom: 6px;
     }
 
-    .empty-body {
+    .form-input, .form-select {
+      width: 100%;
+      background: rgba(0,0,0,0.5);
+      border: 1px solid var(--sep);
+      border-radius: var(--r-sm);
+      color: var(--label);
+      font-family: var(--font);
       font-size: 14px;
-      color: var(--secondary);
-      max-width: 320px;
-      margin: 0 auto;
-      line-height: 1.55;
+      padding: 8px 12px;
+      outline: none;
     }
 
-    /* ─── Scrollbar (webkit) ────────────────────────────────────────── */
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--quaternary); border-radius: 10px; }
+    .form-input:focus, .form-select:focus { border-color: var(--amber); }
 
-    /* ─── Toast ─────────────────────────────────────────────────────── */
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    /* Empty state */
+    .empty-state { text-align: center; padding: 60px 20px; }
+    .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
+    .empty-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+    .empty-body { font-size: 13px; color: var(--secondary); max-width: 400px; margin: 0 auto; }
+
+    /* Toast */
     .toast {
       position: fixed;
-      bottom: 28px;
+      bottom: 24px;
       left: 50%;
-      transform: translateX(-50%) translateY(8px);
-      background: rgba(40, 40, 50, 0.92);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid var(--sep);
+      transform: translateX(-50%);
+      background: #1c1c24;
+      border: 1px solid var(--amber-border);
       color: var(--label);
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 500;
-      padding: 10px 20px;
+      padding: 10px 18px;
       border-radius: 100px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.6);
       display: none;
-      z-index: 999;
-      letter-spacing: -0.01em;
+      z-index: 1001;
       white-space: nowrap;
     }
+    .toast.visible { display: block; }
 
-    .toast.visible {
-      display: block;
-      animation: toastIn 0.2s ease both;
-    }
-
-    @keyframes toastIn {
-      from { opacity: 0; transform: translateX(-50%) translateY(12px); }
-      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
-    }
-
-    /* ─── Tab panels ────────────────────────────────────────────────── */
+    /* Tab panels */
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
 
-    /* ─── Responsive ─────────────────────────────────────────────────── */
+    /* Responsive */
     @media (max-width: 860px) {
-      .shell {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto 1fr;
-      }
-      .sidebar {
-        border-right: none;
-        border-bottom: 1px solid var(--sep);
-        max-height: 220px;
-      }
+      .shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      .sidebar { max-height: 280px; border-right: none; border-bottom: 1px solid var(--sep); }
+      .stats-strip { padding: 10px 16px; }
+      .content { padding: 16px; }
     }
   </style>
 </head>
@@ -596,14 +645,18 @@
         <div class="wordmark-icon">🎲</div>
         <div>
           <div class="wordmark-text">TowerCast</div>
-          <div class="wordmark-sub">The Dice Tower · Private Feed</div>
+          <div class="wordmark-sub">The Dice Tower · Private Studio</div>
         </div>
       </div>
     </div>
 
+    <!-- Feed / Remote Access -->
     <div class="feed-pill">
-      <div class="feed-pill-label">Podcast Feed URL</div>
-      <div class="feed-pill-url" id="feedUrlText">{{ feed_url }}</div>
+      <div class="feed-pill-label">
+        <span>Podcast Feed</span>
+        <span style="color: var(--amber); font-weight:700;">Overcast</span>
+      </div>
+      <div class="feed-pill-url" id="feedUrlText">{{ gh_feed_url or feed_url }}</div>
       <button class="feed-pill-copy" onclick="copyFeedUrl()">Copy for Overcast</button>
     </div>
 
@@ -632,26 +685,45 @@
       </button>
       % end
 
-      <div class="nav-section-label" style="margin-top: 8px;">Auto-Prepared Shows</div>
-      % for kw in auto_keywords:
-      <div class="nav-item" style="cursor: default; font-size: 13px;">
-        <span class="nav-item-icon">⚡</span>
-        {{ kw }}
+      <div class="nav-section-label">Configuration</div>
+
+      <button class="nav-item" onclick="switchTab('favorites', this)" id="navFavorites">
+        <span class="nav-item-icon">⭐</span>
+        Favorites & Show Rules
+        <span class="nav-badge muted">{{ len(auto_keywords) + len(favorites_shows) }}</span>
+      </button>
+
+      <div class="nav-section-label">Access Links</div>
+      <div class="nav-item" style="cursor: pointer; font-size: 11px; font-family: var(--font-mono);" onclick="copyText('{{ lan_url }}', 'Home Wi-Fi link copied!')" title="Click to copy LAN URL">
+        <span class="nav-item-icon">📱</span>
+        Wi-Fi: {{ lan_url }}
+      </div>
+      % if remote_url:
+      <div class="nav-item" style="cursor: pointer; font-size: 11px; font-family: var(--font-mono); color: var(--amber-bright);" onclick="copyText('{{ remote_url }}', 'Remote tunnel link copied!')">
+        <span class="nav-item-icon">🌐</span>
+        Tunnel: {{ remote_url[:24] }}...
       </div>
       % end
+      <div class="nav-item" style="cursor: pointer; font-size: 11px;" onclick="promptForGhToken()" title="Configure 1-tap mobile actions while Mac is asleep">
+        <span class="nav-item-icon">🔑</span>
+        Mobile 1-Tap Setup
+      </div>
     </nav>
 
     <div class="sidebar-footer">
-      <button class="sync-btn" onclick="triggerSync()" id="btnSync">
+      <button class="sync-btn" onclick="triggerSync(30)" id="btnSync">
         <span id="syncIcon">↻</span>
         Sync Channel Now
+      </button>
+      <button class="sync-btn accent" onclick="triggerSync(150)" id="btnBacklog">
+        <span>📚</span>
+        Scan Backlog (150 Episodes)
       </button>
     </div>
   </aside>
 
   <!-- ─── Main ───────────────────────────────────────── -->
   <main class="main">
-    <!-- Stats -->
     <div class="stats-strip">
       <div class="stat-tile">
         <div class="stat-tile-value" style="color: var(--fill-success-fg);">{{ len(ready_episodes) }}</div>
@@ -659,15 +731,19 @@
       </div>
       <div class="stat-tile">
         <div class="stat-tile-value" style="color: var(--amber);">{{ len(pending_episodes) }}</div>
-        <div class="stat-tile-label">Waiting for you</div>
+        <div class="stat-tile-label">Waiting for review</div>
       </div>
       <div class="stat-tile">
-        <div class="stat-tile-value" style="color: var(--secondary);">{{ len(queued_episodes) }}</div>
-        <div class="stat-tile-label">Queued / downloading</div>
+        <div class="stat-tile-value" style="color: var(--secondary);">{{ len(auto_keywords) + len(favorites_shows) }}</div>
+        <div class="stat-tile-label">Active show rules</div>
+      </div>
+
+      <div class="network-badge">
+        <span class="network-dot"></span>
+        <span>Includes YouTube Videos + Live Streams</span>
       </div>
     </div>
 
-    <!-- Content -->
     <div class="content">
 
       <!-- ── Pending Tab ── -->
@@ -675,17 +751,21 @@
         <div class="section-header">
           <div>
             <div class="section-title">Needs Your Attention</div>
+            <div class="section-desc">Videos not caught by auto-rules. Pick what you want to hear or dismiss the rest.</div>
           </div>
-          % if pending_episodes:
-          <button class="section-action" onclick="queueAllPending()">Add all to feed</button>
-          % end
+          <div class="btn-group">
+            <button class="action-btn" onclick="triggerSync(150)">📚 Pull More Backlog</button>
+            % if pending_episodes:
+            <button class="action-btn primary" onclick="queueAllPending()">Add All to Feed</button>
+            % end
+          </div>
         </div>
 
         % if not pending_episodes:
         <div class="empty-state">
-          <div class="empty-icon">✅</div>
-          <div class="empty-title">All caught up</div>
-          <div class="empty-body">Nothing waiting to be reviewed. Your auto-prepared shows will appear here when new episodes land.</div>
+          <div class="empty-icon">🎉</div>
+          <div class="empty-title">All caught up!</div>
+          <div class="empty-body">No pending videos waiting for your choice. Click "Scan Backlog" to discover older episodes from the channel.</div>
         </div>
         % else:
         <div class="episode-grid">
@@ -713,8 +793,12 @@
       <!-- ── Ready Tab ── -->
       <div class="tab-panel" id="panelReady">
         <div class="section-header">
-          <div class="section-title">In Your Feed</div>
+          <div>
+            <div class="section-title">In Your Feed</div>
+            <div class="section-desc">Active episodes available for streaming and downloaded to Overcast.</div>
+          </div>
         </div>
+
         % if not ready_episodes:
         <div class="empty-state">
           <div class="empty-icon">🎙</div>
@@ -728,7 +812,7 @@
             <div class="ep-thumb">
               <img src="{{ ep.get('thumbnail_url') or '' }}" alt="" loading="lazy">
               % if ep.get('matched_keyword'):
-              <span class="ep-ribbon">Auto</span>
+              <span class="ep-ribbon">{{ ep.get('matched_keyword') }}</span>
               % end
               % if ep.get('duration'):
               <span class="ep-duration">{{ format_duration(ep.get('duration')) }}</span>
@@ -767,16 +851,115 @@
       </div>
       % end
 
+      <!-- ── Favorites & Show Rules Tab ── -->
+      <div class="tab-panel" id="panelFavorites">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Favorites & Auto-Prepared Shows</div>
+            <div class="section-desc">Any videos matching these keywords will be converted automatically without waiting for manual approval.</div>
+          </div>
+          <button class="action-btn primary" onclick="openAddRuleModal()">+ Add Show Rule</button>
+        </div>
+
+        <div class="rules-grid">
+          <!-- Auto Include Keywords -->
+          % for kw in auto_keywords:
+          <div class="rule-card">
+            <div class="rule-info">
+              <span style="font-size: 18px;">⚡</span>
+              <div>
+                <div class="rule-keyword">{{ kw }}</div>
+                <div style="font-size: 11px; color: var(--secondary);">Auto-Prepare · Unlimited</div>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap: 10px;">
+              <span class="rule-badge auto">Always Grab</span>
+              <button class="rule-delete-btn" onclick="deleteRule('{{ kw }}')">Remove</button>
+            </div>
+          </div>
+          % end
+
+          <!-- Favorites Shows with Caps -->
+          % for show in favorites_shows:
+          <div class="rule-card">
+            <div class="rule-info">
+              <span style="font-size: 18px;">★</span>
+              <div>
+                <div class="rule-keyword">{{ show.get('keyword') }}</div>
+                <div style="font-size: 11px; color: var(--secondary);">
+                  Favorite Show ·
+                  % if show.get('max_per_sync'):
+                  Max {{ show.get('max_per_sync') }} per sync
+                  % else:
+                  Unlimited
+                  % end
+                </div>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap: 10px;">
+              <span class="rule-badge">Favorite</span>
+              <button class="rule-delete-btn" onclick="deleteRule('{{ show.get('keyword') }}')">Remove</button>
+            </div>
+          </div>
+          % end
+
+          % if not auto_keywords and not favorites_shows:
+          <div class="empty-state">
+            <div class="empty-icon">⭐</div>
+            <div class="empty-title">No show rules configured</div>
+            <div class="empty-body">Click "+ Add Show Rule" to auto-download your favorite shows.</div>
+          </div>
+          % end
+        </div>
+      </div>
+
     </div><!-- /content -->
   </main>
+</div>
+
+<!-- Add Rule Modal -->
+<div class="modal-backdrop" id="modalAddRule">
+  <div class="modal-box">
+    <div class="modal-title">Add Show Rule</div>
+    <div class="modal-sub">Videos containing this keyword in their title will be prepared automatically.</div>
+
+    <form onsubmit="submitRule(event)">
+      <div class="form-group">
+        <label class="form-label" for="ruleKeyword">Show Title or Keyword</label>
+        <input class="form-input" id="ruleKeyword" placeholder="e.g. Crowdsurfing, Live Q&A, Zee Garcia" required autofocus>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="ruleType">Rule Type</label>
+        <select class="form-select" id="ruleType" onchange="toggleCapInput()">
+          <option value="auto">⚡ Always Auto-Prepare (Unlimited)</option>
+          <option value="favorite">★ Favorite Show (With Per-Sync Cap)</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="groupCap" style="display: none;">
+        <label class="form-label" for="ruleCap">Max Episodes Per Sync (Cap)</label>
+        <input class="form-input" type="number" id="ruleCap" placeholder="e.g. 2 (leave blank for unlimited)" min="1" max="50">
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="action-btn" onclick="closeAddRuleModal()">Cancel</button>
+        <button type="submit" class="action-btn primary">Save Rule</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
   // ─── Tab routing ───────────────────────────────────────
-  const panels = { pending: 'panelPending', ready: 'panelReady', queued: 'panelQueued' };
-  const navIds  = { pending: 'navPending',  ready: 'navReady',   queued: 'navQueued'  };
+  const panels = {
+    pending: 'panelPending',
+    ready: 'panelReady',
+    queued: 'panelQueued',
+    favorites: 'panelFavorites'
+  };
 
   function switchTab(name, btn) {
     Object.values(panels).forEach(id => {
@@ -798,16 +981,88 @@
     setTimeout(() => t.classList.remove('visible'), 2800);
   }
 
-  // ─── Feed URL copy ──────────────────────────────────────
-  function copyFeedUrl() {
-    const url = document.getElementById('feedUrlText').textContent.trim();
-    navigator.clipboard.writeText(url).then(() => showToast('Feed URL copied — paste into Overcast'));
+  function copyText(text, successMsg) {
+    navigator.clipboard.writeText(text).then(() => showToast(successMsg));
   }
 
-  // ─── Queue / skip single ───────────────────────────────
+  function copyFeedUrl() {
+    const url = document.getElementById('feedUrlText').textContent.trim();
+    copyText(url, 'Feed URL copied — paste into Overcast');
+  }
+
+  const isCloud = window.location.hostname.includes('github.io');
+  const GH_REPO = 'nathanrtracey1/towercast';
+
+  function getGhToken() {
+    return localStorage.getItem('towercast_gh_token') || '';
+  }
+
+  function setGhToken(token) {
+    if (token) {
+      localStorage.setItem('towercast_gh_token', token.trim());
+      showToast('GitHub token saved for 1-tap cloud actions!');
+    } else {
+      localStorage.removeItem('towercast_gh_token');
+      showToast('GitHub token cleared');
+    }
+  }
+
+  function promptForGhToken() {
+    const curr = getGhToken();
+    const token = prompt('Enter your GitHub Personal Access Token (with Actions/Repo write permission) for 1-tap mobile queueing while your Mac is off:\n\n(Leave blank to clear)', curr);
+    if (token !== null) {
+      setGhToken(token);
+    }
+  }
+
+  async function dispatchCloudAction(inputs, issueTitle) {
+    const token = getGhToken();
+    if (token) {
+      try {
+        const res = await fetch(`https://api.github.com/repos/${GH_REPO}/actions/workflows/towercast.yml/dispatches`, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ ref: 'main', inputs: inputs })
+        });
+        if (res.status === 204) {
+          showToast('⚡ Triggered in GitHub Actions! Updating feed in ~2 mins.');
+          return true;
+        } else {
+          const err = await res.json().catch(() => ({}));
+          showToast('GitHub API error: ' + (err.message || res.status));
+        }
+      } catch (e) {
+        showToast('Network error contacting GitHub');
+      }
+    }
+
+    // Fallback: GitHub Issue trigger (zero tokens required)
+    const issueUrl = `https://github.com/${GH_REPO}/issues/new?title=${encodeURIComponent(issueTitle)}&body=${encodeURIComponent("Automated TowerCast cloud action. GitHub Actions will process this and close automatically.")}`;
+    if (confirm("Your Mac is offline. Would you like to trigger this cloud download via GitHub Issue? (Or cancel to enter a GitHub Token for 1-tap)")) {
+      window.open(issueUrl, '_blank');
+      showToast('Submit the issue on GitHub to trigger download!');
+      return true;
+    } else {
+      promptForGhToken();
+      return false;
+    }
+  }
+
+  // ─── Queue / Skip ──────────────────────────────────────
   async function queueVideo(videoId) {
     const card = document.getElementById('card-' + videoId);
     if (card) { card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
+
+    if (isCloud) {
+      const ok = await dispatchCloudAction({ action: 'queue', video_id: videoId }, `[Queue]: ${videoId}`);
+      if (!ok && card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+      return;
+    }
+
     try {
       const res = await fetch('/api/queue', {
         method: 'POST',
@@ -819,57 +1074,141 @@
         showToast('Added to podcast feed');
         setTimeout(() => location.reload(), 700);
       }
-    } catch (e) { showToast('Could not queue episode'); if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; } }
+    } catch (e) {
+      showToast('Could not queue episode');
+      if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+    }
   }
 
   async function skipVideo(videoId) {
-    try {
-      const res = await fetch('/api/skip', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ video_id: videoId })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        const card = document.getElementById('card-' + videoId);
-        if (card) card.remove();
-        showToast('Episode dismissed');
-      }
-    } catch (e) { showToast('Could not skip episode'); }
+    const card = document.getElementById('card-' + videoId);
+    if (card) card.remove();
+    showToast('Episode dismissed');
+
+    if (!isCloud) {
+      try {
+        await fetch('/api/skip', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ video_id: videoId })
+        });
+      } catch (e) {}
+    }
   }
 
-  // ─── Queue all pending ──────────────────────────────────
   async function queueAllPending() {
+    if (isCloud) {
+      await dispatchCloudAction({ action: 'sync', scan_limit: '50' }, `[Queue]: all`);
+      return;
+    }
     try {
       await fetch('/api/sync', { method: 'POST' });
       showToast('All pending episodes queued');
       setTimeout(() => location.reload(), 1000);
-    } catch (e) { showToast('Error'); }
+    } catch (e) { showToast('Error queuing all'); }
   }
 
-  // ─── Sync channel ───────────────────────────────────────
-  async function triggerSync() {
-    const btn = document.getElementById('btnSync');
-    const icon = document.getElementById('syncIcon');
-    btn.disabled = true;
-    icon.style.display = 'inline-block';
-    icon.style.animation = 'spin 1s linear infinite';
-    // inject spin keyframes once
-    if (!document.getElementById('spin-style')) {
-      const s = document.createElement('style');
-      s.id = 'spin-style';
-      s.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
-      document.head.appendChild(s);
+  // ─── Sync Channel ──────────────────────────────────────
+  async function triggerSync(limit = 30) {
+    const btn = document.getElementById(limit > 50 ? 'btnBacklog' : 'btnSync');
+    const origText = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span>⏳</span> Syncing...'; }
+
+    if (isCloud) {
+      await dispatchCloudAction({ action: 'sync', scan_limit: String(limit) }, `[Sync]: limit ${limit}`);
+      if (btn) { btn.disabled = false; btn.innerHTML = origText; }
+      return;
     }
+
     try {
-      const res = await fetch('/api/sync', { method: 'POST' });
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ limit: limit })
+      });
       const data = await res.json();
-      showToast('Sync started — new shows will appear shortly');
-      setTimeout(() => location.reload(), 3000);
-    } catch (e) { showToast('Sync failed'); }
-    finally {
-      btn.disabled = false;
-      icon.style.animation = '';
+      showToast(limit > 50 ? 'Backlog scan started (150 videos)...' : 'Sync started...');
+      setTimeout(() => location.reload(), 4000);
+    } catch (e) {
+      showToast('Sync failed');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = origText; }
+    }
+  }
+
+  // ─── Modal / Rules Management ─────────────────────────
+  function openAddRuleModal() {
+    document.getElementById('modalAddRule').classList.add('active');
+    document.getElementById('ruleKeyword').focus();
+  }
+
+  function closeAddRuleModal() {
+    document.getElementById('modalAddRule').classList.remove('active');
+  }
+
+  function toggleCapInput() {
+    const type = document.getElementById('ruleType').value;
+    document.getElementById('groupCap').style.display = (type === 'favorite') ? 'block' : 'none';
+  }
+
+  async function submitRule(e) {
+    e.preventDefault();
+    const keyword = document.getElementById('ruleKeyword').value.trim();
+    const type = document.getElementById('ruleType').value;
+    const capVal = document.getElementById('ruleCap').value.trim();
+    const cap = (type === 'favorite' && capVal) ? parseInt(capVal) : null;
+
+    if (!keyword) return;
+
+    if (isCloud) {
+      closeAddRuleModal();
+      await dispatchCloudAction(
+        { action: 'add_favorite', keyword: keyword, rule_type: type, max_per_sync: cap ? String(cap) : '' },
+        `[Favorite]: ${keyword}`
+      );
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/favorites/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ keyword: keyword, type: type, max_per_sync: cap })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast(data.message || 'Rule added!');
+        closeAddRuleModal();
+        setTimeout(() => location.reload(), 900);
+      } else {
+        showToast(data.error || 'Failed to add rule');
+      }
+    } catch (e) {
+      showToast('Failed to add rule');
+    }
+  }
+
+  async function deleteRule(keyword) {
+    if (!confirm(`Remove "${keyword}" from auto-prepared rules?`)) return;
+
+    if (isCloud) {
+      await dispatchCloudAction({ action: 'delete_favorite', keyword: keyword }, `[DeleteFavorite]: ${keyword}`);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/favorites/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ keyword: keyword })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast(`Removed "${keyword}"`);
+        setTimeout(() => location.reload(), 700);
+      }
+    } catch (e) {
+      showToast('Failed to delete rule');
     }
   }
 </script>

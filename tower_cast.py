@@ -10,6 +10,7 @@ import os
 import sys
 import time
 import threading
+import subprocess
 from typing import Dict, Any
 
 from engine.database import Database
@@ -56,8 +57,8 @@ def get_components(config: Dict[str, Any]):
 
 def cmd_sync(args, config):
     db, yt, dl, _ = get_components(config)
-    limit = args.limit or 30
-    print(f"\n📡 Scanning channel: {config['channel_url']} (latest {limit} videos)...")
+    limit = 150 if getattr(args, "backlog", False) else (args.limit or 30)
+    print(f"\n📡 Scanning channel sources (uploads + live streams, limit={limit} each)...")
 
     try:
         channel_info, entries = yt.fetch_channel_entries(limit=limit)
@@ -231,17 +232,55 @@ def cmd_pick(args, config):
 
     print("\n🎉 Done! New episodes have been added to your podcast feed.")
 
+def start_tunnel_background(port: int, config: Dict[str, Any]):
+    """Launches Cloudflare Quick Tunnel in background and displays public HTTPS URL for any-browser access."""
+    from tunnel import check_cloudflared
+    bin_path = check_cloudflared()
+    if not bin_path:
+        logger.warning("cloudflared not found; tunnel could not be started.")
+        return
+
+    def run_tunnel():
+        import re
+        cmd = [bin_path, "tunnel", "--url", f"http://localhost:{port}"]
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        for line in iter(proc.stdout.readline, ''):
+            if not line:
+                break
+            match = re.search(r'https://[a-zA-Z0-9-]+\.trycloudflare\.com', line)
+            if match:
+                tunnel_url = match.group(0)
+                config["remote_url"] = tunnel_url
+                print("\n" + "="*70)
+                print("🌐 REMOTE DASHBOARD ACTIVE (ACCESS FROM ANY PHONE / BROWSER)")
+                print(f"   {tunnel_url}")
+                print("   Open this link on your phone from any cellular network or remote Wi-Fi!")
+                print("="*70 + "\n")
+                break
+
+    t = threading.Thread(target=run_tunnel, daemon=True)
+    t.start()
+
 def cmd_serve(args, config):
     _, _, _, server = get_components(config)
     host = args.host or config.get("server_host", "0.0.0.0")
     port = args.port or config.get("server_port", 8080)
     base_url = config.get("public_base_url", f"http://localhost:{port}")
 
+    if getattr(args, "tunnel", False):
+        start_tunnel_background(port, config)
+
+    from server.web import get_lan_ip
+    lan_ip = get_lan_ip()
+
     print("\n" + "="*70)
     print("🎲 TOWERCAST SERVER RUNNING")
     print("="*70)
-    print(f"  Web Dashboard:  http://localhost:{port}")
-    print(f"  Podcast Feed:   {base_url}/feed.xml")
+    print(f"  Local Dashboard:  http://localhost:{port}")
+    print(f"  Home Wi-Fi Phone: http://{lan_ip}:{port}")
+    print(f"  Podcast Feed:     {base_url}/feed.xml")
+    if getattr(args, "tunnel", False):
+        print("  Starting Cloudflare Remote Tunnel...")
     print("="*70 + "\n")
 
     server.run(host=host, port=port)
@@ -422,7 +461,8 @@ def main():
 
     # sync
     sync_parser = subparsers.add_parser("sync", help="Scan YouTube, auto-download matching shows, update feed")
-    sync_parser.add_argument("--limit", type=int, default=30, help="Number of recent videos to scan")
+    sync_parser.add_argument("--limit", type=int, default=None, help="Number of recent videos to scan per source")
+    sync_parser.add_argument("--backlog", action="store_true", help="Deep backlog scan (150 videos per source)")
 
     # pick
     pick_parser = subparsers.add_parser("pick", help="Interactive terminal picker to select pending videos")
@@ -432,9 +472,11 @@ def main():
     serve_parser = subparsers.add_parser("serve", help="Start the feed server and web dashboard")
     serve_parser.add_argument("--host", default=None, help="Host address to bind")
     serve_parser.add_argument("--port", type=int, default=None, help="Port to bind")
+    serve_parser.add_argument("--tunnel", action="store_true", help="Launch Cloudflare Remote Tunnel for access anywhere outside home")
 
     # daemon
-    subparsers.add_parser("daemon", help="Run background periodic sync and feed server continuously")
+    daemon_parser = subparsers.add_parser("daemon", help="Run background periodic sync and feed server continuously")
+    daemon_parser.add_argument("--tunnel", action="store_true", help="Launch Cloudflare Remote Tunnel for access anywhere outside home")
 
     # status
     subparsers.add_parser("status", help="Show current feed statistics and URL")

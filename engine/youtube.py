@@ -34,47 +34,80 @@ class YouTubeEngine:
                 if kw:
                     self._favorites_keywords.append(kw)
 
+    def _get_scan_urls(self) -> List[str]:
+        """Returns list of URLs to scan, ensuring both regular videos and live streams are fetched."""
+        if isinstance(self.channel_url, list):
+            return self.channel_url
+        urls = [self.channel_url]
+        if "/videos" in self.channel_url:
+            streams_url = self.channel_url.replace("/videos", "/streams")
+            if streams_url not in urls:
+                urls.append(streams_url)
+        elif self.channel_url.startswith("https://www.youtube.com/@") and not any(x in self.channel_url for x in ["/videos", "/streams", "/playlists"]):
+            base = self.channel_url.rstrip("/")
+            urls = [f"{base}/videos", f"{base}/streams"]
+        return urls
+
     def fetch_channel_entries(
         self, limit: int = 30
     ) -> Tuple[Optional[Dict[str, Any]], List[Dict[str, Any]]]:
         """
-        Extracts recent video entries from the channel or playlist.
+        Extracts recent video entries from the channel (both uploads and live streams).
         Uses yt-dlp --flat-playlist for fast metadata retrieval.
         Returns: (channel_metadata, list_of_video_entries)
         """
-        cmd = [
-            "yt-dlp",
-            "--flat-playlist",
-            "--dump-single-json",
-            "--playlist-end", str(limit),
-            self.channel_url,
-        ]
-        logger.info(f"Scanning channel via yt-dlp: {self.channel_url} (limit={limit})")
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            data = json.loads(result.stdout)
-            entries = data.get("entries", [])
-            channel_info = {
-                "id": data.get("id"),
-                "title": data.get("title", "The Dice Tower"),
-                "channel": data.get("channel", data.get("uploader", "The Dice Tower")),
-                "description": data.get("description", ""),
-                "avatar": None,
-            }
-            for t in data.get("thumbnails", []):
-                if t.get("id") in ("avatar_uncropped", "7") or "avatar" in t.get("url", ""):
-                    channel_info["avatar"] = t.get("url")
-                    break
-            if not channel_info["avatar"] and data.get("thumbnails"):
-                channel_info["avatar"] = data["thumbnails"][-1].get("url")
+        urls = self._get_scan_urls()
+        all_entries: List[Dict[str, Any]] = []
+        seen_ids = set()
+        channel_info = None
 
-            return channel_info, entries
-        except subprocess.CalledProcessError as e:
-            logger.error(f"yt-dlp scan failed: {e.stderr}")
-            raise RuntimeError(f"yt-dlp failed: {e.stderr}")
-        except Exception as e:
-            logger.error(f"Error parsing channel info: {e}")
-            raise
+        for url in urls:
+            cmd = [
+                "yt-dlp",
+                "--flat-playlist",
+                "--dump-single-json",
+                "--playlist-end", str(limit),
+                url,
+            ]
+            logger.info(f"Scanning source via yt-dlp: {url} (limit={limit})")
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+                data = json.loads(result.stdout)
+                entries = data.get("entries", [])
+
+                if not channel_info:
+                    channel_info = {
+                        "id": data.get("id"),
+                        "title": data.get("title", "The Dice Tower"),
+                        "channel": data.get("channel", data.get("uploader", "The Dice Tower")),
+                        "description": data.get("description", ""),
+                        "avatar": None,
+                    }
+                    for t in data.get("thumbnails", []):
+                        if t.get("id") in ("avatar_uncropped", "7") or "avatar" in t.get("url", ""):
+                            channel_info["avatar"] = t.get("url")
+                            break
+                    if not channel_info["avatar"] and data.get("thumbnails"):
+                        channel_info["avatar"] = data["thumbnails"][-1].get("url")
+
+                for e in entries:
+                    eid = e.get("id")
+                    if eid and eid not in seen_ids:
+                        seen_ids.add(eid)
+                        all_entries.append(e)
+            except Exception as e:
+                logger.warning(f"Error scanning source {url}: {e}")
+
+        if not channel_info:
+            channel_info = {
+                "id": "thedicetower",
+                "title": "The Dice Tower",
+                "channel": "The Dice Tower",
+                "description": "",
+                "avatar": None
+            }
+
+        return channel_info, all_entries
 
     def is_short(self, entry: Dict[str, Any]) -> bool:
         """Determines if a video entry is a YouTube Short."""

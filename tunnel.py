@@ -16,8 +16,8 @@ CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.j
 def check_cloudflared():
     path = shutil.which("cloudflared")
     if not path:
-        # Check standard Homebrew locations on Apple Silicon
-        for candidate in ["/opt/homebrew/bin/cloudflared", "/usr/local/bin/cloudflared"]:
+        local_bin = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin", "cloudflared")
+        for candidate in [local_bin, "/opt/homebrew/bin/cloudflared", "/usr/local/bin/cloudflared"]:
             if os.path.exists(candidate):
                 return candidate
     return path

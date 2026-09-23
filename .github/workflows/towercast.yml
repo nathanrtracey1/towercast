@@ -5,13 +5,27 @@ on:
   schedule:
     - cron: '0 10 * * *'
 
-  # Allow manual runs from the Actions tab with an optional limit override
+  # Manual dispatch or mobile GitHub Pages trigger
   workflow_dispatch:
     inputs:
+      action:
+        description: 'Action (sync, queue, add_favorite, delete_favorite)'
+        required: false
+        default: 'sync'
+      video_id:
+        description: 'YouTube Video ID to download (if action=queue)'
+        required: false
+      keyword:
+        description: 'Keyword for favorite rule'
+        required: false
       scan_limit:
         description: 'Number of recent channel videos to scan'
         required: false
         default: '30'
+
+  # Mobile triggers via GitHub Issues (works 100% when Mac is off)
+  issues:
+    types: [opened]
 
 jobs:
   sync:
@@ -21,6 +35,7 @@ jobs:
     permissions:
       contents: write   # needed to create releases and push gh-pages
       pages: write      # needed for GitHub Pages deployment
+      issues: write     # needed to comment on and close triggers
 
     steps:
       - name: Checkout repository
@@ -46,7 +61,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          pip install yt-dlp
+          pip install yt-dlp bottle
 
       - name: Verify yt-dlp
         run: yt-dlp --version
@@ -56,15 +71,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           SCAN_LIMIT: ${{ github.event.inputs.scan_limit || '30' }}
+          ACTION: ${{ github.event.inputs.action || 'sync' }}
+          VIDEO_ID: ${{ github.event.inputs.video_id || '' }}
+          KEYWORD: ${{ github.event.inputs.keyword || '' }}
           YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
         run: python3 github/feed_builder.py
 
-      - name: Deploy feed.xml to GitHub Pages
+      - name: Deploy feed.xml & Dashboard to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./gh-pages-output
-          # Keep existing assets between deployments (don't wipe old pages)
           keep_files: false
           force_orphan: true
           user_name: 'github-actions[bot]'
