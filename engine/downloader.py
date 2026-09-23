@@ -5,6 +5,8 @@ Extracts pristine audio, embeds Dice Tower cover art, metadata, and chapter mark
 import json
 import logging
 import os
+import platform
+import shutil
 import subprocess
 from datetime import datetime, timezone
 from typing import Dict, Optional, Any
@@ -12,10 +14,11 @@ from typing import Dict, Optional, Any
 logger = logging.getLogger(__name__)
 
 class Downloader:
-    def __init__(self, media_dir: str, audio_format: str = "m4a", audio_quality: str = "192k"):
+    def __init__(self, media_dir: str, audio_format: str = "m4a", audio_quality: str = "192k", cookies_file: Optional[str] = None):
         self.media_dir = os.path.abspath(media_dir)
         self.audio_format = audio_format
         self.audio_quality = audio_quality
+        self.cookies_file = cookies_file
         os.makedirs(self.media_dir, exist_ok=True)
 
     def download_episode(self, video_id: str, video_url: str) -> Dict[str, Any]:
@@ -29,6 +32,16 @@ class Downloader:
 
         output_template = os.path.join(ep_dir, f"{video_id}.%(ext)s")
 
+        # Discover ffmpeg binary directory dynamically (macOS Homebrew or Linux /usr/bin)
+        ffmpeg_dir = None
+        ffmpeg_bin = shutil.which("ffmpeg")
+        if ffmpeg_bin:
+            ffmpeg_dir = os.path.dirname(ffmpeg_bin)
+        elif os.path.exists("/opt/homebrew/bin/ffmpeg"):
+            ffmpeg_dir = "/opt/homebrew/bin"
+        elif os.path.exists("/usr/bin/ffmpeg"):
+            ffmpeg_dir = "/usr/bin"
+
         cmd = [
             "yt-dlp",
             "-f", "bestaudio/best",
@@ -36,16 +49,31 @@ class Downloader:
             "--audio-format", self.audio_format,
             "--audio-quality", self.audio_quality,
             "--convert-thumbnails", "jpg",
-            "--ffmpeg-location", "/opt/homebrew/bin",
             "--embed-thumbnail",
             "--embed-metadata",
             "--embed-chapters",
             "--write-thumbnail",
             "--write-info-json",
             "--no-playlist",
+        ]
+
+        if ffmpeg_dir:
+            cmd.extend(["--ffmpeg-location", ffmpeg_dir])
+
+        if self.cookies_file and os.path.exists(self.cookies_file):
+            cmd.extend(["--cookies", self.cookies_file])
+        else:
+            # Fallback client configuration when no cookies are provided (avoids bot challenge)
+            cmd.extend(["--extractor-args", "youtube:player_client=android,web"])
+
+        # Enable JS runtime if node is installed and deno isn't detected
+        if shutil.which("node") and not shutil.which("deno"):
+            cmd.extend(["--js-runtimes", "node"])
+
+        cmd.extend([
             "-o", output_template,
             video_url
-        ]
+        ])
 
         logger.info(f"Starting audio download for {video_id} ({video_url})")
         proc = subprocess.run(cmd, capture_output=True, text=True)

@@ -160,11 +160,24 @@ def should_auto_download(title: str, config: Dict[str, Any]) -> Tuple[bool, Opti
 def download_and_upload(video_id: str, video_url: str, classified: Dict,
                         api: GitHubAPI, config: Dict) -> Optional[Dict[str, Any]]:
     """Downloads audio, uploads to a new GitHub Release, returns episode metadata."""
+    cookies_path = None
+    cookies_content = os.environ.get("YOUTUBE_COOKIES", "").strip()
+    if cookies_content:
+        cookies_path = "/tmp/yt_cookies.txt"
+        try:
+            with open(cookies_path, "w", encoding="utf-8") as f:
+                f.write(cookies_content)
+            logger.info("🍪 Loaded YouTube cookies from YOUTUBE_COOKIES")
+        except Exception as e:
+            logger.warning(f"Could not write cookies file: {e}")
+            cookies_path = None
+
     with tempfile.TemporaryDirectory() as tmpdir:
         dl = Downloader(
             media_dir=tmpdir,
             audio_format=config.get("audio_format", "m4a"),
             audio_quality=config.get("audio_quality", "192k"),
+            cookies_file=cookies_path,
         )
 
         logger.info(f"⬇  Downloading: {classified['title']}")
