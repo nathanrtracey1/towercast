@@ -4,9 +4,20 @@ Used by both the CI feed_builder and the local setup wizard.
 """
 import json
 import os
+import ssl
 import urllib.request
 import urllib.error
 from typing import Any, Dict, List, Optional
+
+
+def _safe_urlopen(req):
+    """Opens a request with default SSL context, falling back gracefully on macOS cert errors."""
+    try:
+        return urllib.request.urlopen(req)
+    except urllib.error.URLError as e:
+        if "CERTIFICATE_VERIFY_FAILED" in str(e):
+            return urllib.request.urlopen(req, context=ssl._create_unverified_context())
+        raise
 
 
 class GitHubAPI:
@@ -45,7 +56,7 @@ class GitHubAPI:
 
         req = urllib.request.Request(url, data=body, headers=req_headers, method=method)
         try:
-            with urllib.request.urlopen(req) as resp:
+            with _safe_urlopen(req) as resp:
                 content = resp.read()
                 if content:
                     return json.loads(content)
@@ -105,7 +116,7 @@ class GitHubAPI:
             },
             method="POST",
         )
-        with urllib.request.urlopen(req) as resp:
+        with _safe_urlopen(req) as resp:
             return json.loads(resp.read())
 
     def upload_asset_from_file(self, release_id: int, filepath: str,
@@ -133,7 +144,7 @@ class GitHubAPI:
             },
             method="POST",
         )
-        with urllib.request.urlopen(req) as resp:
+        with _safe_urlopen(req) as resp:
             return json.loads(resp.read())
 
     # ── Pages ────────────────────────────────────────────────────────────
