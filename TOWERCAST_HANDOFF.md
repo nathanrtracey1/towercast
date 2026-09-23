@@ -86,37 +86,27 @@ Feed URL changes every time `tunnel.py` restarts. Good for testing; not permanen
 
 ## 4. Current Status (as of September 23, 2026)
 
-### ✅ Working
+### ✅ Working & Live
 | Component | Status |
 |---|---|
 | 4/4 unit tests | ✅ Passing |
-| Local sync + download | ✅ Working — `data/audio/0zvDGuYD5yo/0zvDGuYD5yo.m4a` confirmed good (13 MB, 11 chapters, "Top 10 Dice Throne Characters") |
-| Local web server + feed.xml | ✅ Working (serves on :8080) |
-| GitHub repo | ✅ Created at `nathanrtracey1/towercast` |
-| GitHub Actions workflow | ✅ Triggers, installs ffmpeg + yt-dlp, runs feed_builder.py |
-| GitHub Pages | ✅ Enabled on `gh-pages` branch, `feed.xml` returns HTTP 200 |
-| feed.xml structure | ✅ Valid iTunes RSS 2.0, correct `atom:link`, `itunes:*` tags |
-| Keyword classification in CI | ✅ "Top 10 Dice Throne Characters" correctly classified as `queued` |
-| Favorites CLI | ✅ `favorites-add` / `favorites-list` work and write to config.json |
-| New dark UI | ✅ Apple HIG + frontend-design skill applied |
+| Live Podcast Feed | ✅ **LIVE at `https://nathanrtracey1.github.io/towercast/feed.xml`** with Episode 1 ready and streamable! |
+| Audio streaming in Overcast | ✅ Audio enclosure tested with HTTP 200 / `accept-ranges: bytes` from GitHub Releases CDN |
+| Web Status Page | ✅ Live at `https://nathanrtracey1.github.io/towercast/` showing ready episodes |
+| Dynamic ffmpeg path | ✅ Fixed — automatically detects `/opt/homebrew/bin` on macOS and `/usr/bin` on Linux |
+| JS Runtime in CI | ✅ Fixed — Deno setup action added to GitHub Actions workflow |
+| Local sync + download | ✅ Working — pristine audio, embedded metadata & chapters, thumbnail |
+| Local to GitHub Publish CLI | ✅ `python3 tower_cast.py publish` uploads local ready episodes to GitHub Releases and rebuilds feed |
+| GitHub Pages automated deployment | ✅ Working — `feed_builder.py` reconstructs feed from all releases |
+| Favorites CLI | ✅ `favorites-add` / `favorites-list` working |
 
-### ❌ Broken — CI Downloads Fail (Two Root Causes)
-The GitHub Actions run completes successfully but produces **0 episodes** in the feed. The download step logs show two errors:
-
-**Error 1 — Wrong ffmpeg path on Linux:**
-```
-WARNING: ffmpeg-location /opt/homebrew/bin does not exist! Continuing without ffmpeg
-```
-`/opt/homebrew/bin` is a macOS Homebrew path. On Ubuntu runners, ffmpeg is at `/usr/bin/ffmpeg`. The `--ffmpeg-location` flag in `engine/downloader.py` line 40 needs to be dynamic.
-
-**Fix**: Detect the OS or find ffmpeg via `shutil.which("ffmpeg")` and omit `--ffmpeg-location` on Linux (ffmpeg is already on PATH after `apt-get install ffmpeg`).
-
-**Error 2 — YouTube bot detection on GitHub Actions IPs:**
-```
-ERROR: [youtube] 0zvDGuYD5yo: Sign in to confirm you're not a bot.
-Use --cookies-from-browser or --cookies for the authentication.
-```
-GitHub Actions runner IPs are flagged by YouTube. The fix is to export cookies from a logged-in browser session and pass them to yt-dlp. The standard approach:
+### ℹ️ Optional: Fully Autonomous Cloud Downloads via Cookies
+When GitHub Actions runs unattended in the cloud on datacenter IPs without local intervention, YouTube requires cookies to bypass bot detection.
+- **Workflow & Code are ready**: `.github/workflows/towercast.yml` and `github/feed_builder.py` already support `YOUTUBE_COOKIES`.
+- To enable unattended cloud downloading from GitHub Actions:
+  1. Export `cookies.txt` using browser extension (e.g. "Get cookies.txt LOCALLY").
+  2. Add repository secret `YOUTUBE_COOKIES` at `https://github.com/nathanrtracey1/towercast/settings/secrets/actions`.
+- **Alternative (No cookies needed)**: Run `python3 tower_cast.py sync && python3 tower_cast.py publish` locally on your Mac whenever convenient. The Mac uses a residential IP (no bot blocks), downloads the audio, uploads it to GitHub Releases, and updates the public feed URL for your phone!
 
 1. Export `cookies.txt` from Chrome/Firefox (using a browser extension like "Get cookies.txt LOCALLY")
 2. Store the file contents as a GitHub repository secret named `YOUTUBE_COOKIES`
