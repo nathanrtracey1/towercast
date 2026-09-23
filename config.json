@@ -9,7 +9,11 @@
   "favorites": {
     "enabled": true,
     "comment": "Favorites are queued automatically like auto_include_keywords but support a max_per_sync cap so you don't get flooded. Leave max_per_sync as null for unlimited.",
-    "shows": []
+    "shows": [
+      {
+        "keyword": "Live Q&A"
+      }
+    ]
   },
   "exclude_shorts": true,
   "shorts_max_seconds": 60,
