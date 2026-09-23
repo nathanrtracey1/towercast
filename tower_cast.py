@@ -351,6 +351,71 @@ def cmd_favorites_add(args, config):
         print(f"     Push config.json to GitHub to apply: git add config.json && git commit -m 'Add favorite' && git push")
 
 
+def cmd_publish(args, config):
+    """Uploads local ready episodes to GitHub Releases and triggers GitHub Pages feed rebuild."""
+    gh_cfg = config.get("github", {})
+    if not gh_cfg.get("enabled"):
+        print("❌ GitHub integration is not enabled in config.json. Run 'python3 tower_cast.py github-setup' first.")
+        return
+    repo = gh_cfg.get("repo")
+    db, _, _, _ = get_components(config)
+    ready = db.get_ready_episodes()
+    if not ready:
+        print("ℹ No ready episodes found to upload.")
+        return
+
+    from github.feed_builder import build_release_body
+    import subprocess
+
+    res = subprocess.run(
+        ["gh", "release", "list", "--repo", repo, "--limit", "100", "--json", "tagName", "--jq", ".[].tagName"],
+        capture_output=True, text=True
+    )
+    existing_tags = set(line.strip() for line in res.stdout.strip().splitlines() if line.strip())
+
+    uploaded = 0
+    for ep in ready:
+        tag = f"ep-{ep['id']}"
+        if tag in existing_tags:
+            continue
+        audio_path = os.path.join(MEDIA_DIR, ep["audio_filename"])
+        if not os.path.exists(audio_path):
+            continue
+
+        meta = {
+            'id': ep['id'],
+            'title': ep['title'],
+            'duration': ep['duration'],
+            'published_at': ep['published_at'],
+            'thumbnail_url': ep['thumbnail_url'],
+            'description': ep['description'],
+            'chapters': json.loads(ep['chapters_json'] or '[]'),
+            'matched_keyword': ep['matched_keyword'],
+            'file_size': ep['file_size']
+        }
+        body = build_release_body(meta)
+        print(f"⬆ Uploading to GitHub Release ({tag}): {ep['title']}...")
+        sub_res = subprocess.run([
+            "gh", "release", "create", tag,
+            audio_path,
+            "--title", ep["title"],
+            "--notes", body,
+            "--repo", repo
+        ], capture_output=True, text=True)
+        if sub_res.returncode == 0:
+            print(f"  ✓ Uploaded {tag}")
+            uploaded += 1
+        else:
+            print(f"  ❌ Failed to upload {tag}: {sub_res.stderr.strip()}")
+
+    print(f"\n📊 {uploaded} new episode(s) uploaded to GitHub Releases.")
+    if uploaded > 0 or getattr(args, "rebuild", False):
+        print("🚀 Triggering GitHub Actions feed rebuild...")
+        subprocess.run(["gh", "workflow", "run", "towercast.yml", "--repo", repo])
+        pages_url = gh_cfg.get("pages_url", "").rstrip("/")
+        print(f"✅ Feed will be updated at: {pages_url}/feed.xml")
+
+
 def main():
     parser = argparse.ArgumentParser(description="TowerCast: YouTube → Private Podcast Feed")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -389,6 +454,10 @@ def main():
     fav_add.add_argument("--max-per-sync", type=int, default=None,
                          help="Max episodes to grab per sync (default: unlimited)")
 
+    # publish
+    pub_parser = subparsers.add_parser("publish", help="Upload local ready episodes to GitHub Releases and rebuild feed")
+    pub_parser.add_argument("--rebuild", action="store_true", help="Force rebuild even if no new episodes were uploaded")
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
@@ -412,6 +481,8 @@ def main():
         cmd_favorites_list(args, config)
     elif args.command == "favorites-add":
         cmd_favorites_add(args, config)
+    elif args.command == "publish":
+        cmd_publish(args, config)
 
 if __name__ == "__main__":
     main()
