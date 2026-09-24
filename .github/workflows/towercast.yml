@@ -30,6 +30,10 @@ on:
   issues:
     types: [opened]
 
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: true
+
 jobs:
   sync:
     name: Sync & Deploy Feed
