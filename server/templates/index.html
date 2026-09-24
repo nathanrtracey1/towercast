@@ -663,18 +663,18 @@
     <nav class="sidebar-nav">
       <div class="nav-section-label">Library</div>
 
-      <button class="nav-item active" onclick="switchTab('pending', this)" id="navPending">
+      <button class="nav-item active" onclick="switchTab('ready', this)" id="navReady">
+        <span class="nav-item-icon">🎧</span>
+        In Your Feed
+        <span class="nav-badge muted">{{ len(ready_episodes) }}</span>
+      </button>
+
+      <button class="nav-item" onclick="switchTab('pending', this)" id="navPending">
         <span class="nav-item-icon">📚</span>
         Backlog & Archives
         % if len(pending_episodes) > 0:
         <span class="nav-badge">{{ len(pending_episodes) }}</span>
         % end
-      </button>
-
-      <button class="nav-item" onclick="switchTab('ready', this)" id="navReady">
-        <span class="nav-item-icon">🎧</span>
-        In Your Feed
-        <span class="nav-badge muted">{{ len(ready_episodes) }}</span>
       </button>
 
       <button class="nav-item" onclick="openAddUrlModal()" style="color: var(--amber-bright); font-weight: 600;">
@@ -689,14 +689,6 @@
         <span class="nav-badge">{{ len(queued_episodes) }}</span>
       </button>
       % end
-
-      <div class="nav-section-label">Configuration</div>
-
-      <button class="nav-item" onclick="switchTab('favorites', this)" id="navFavorites">
-        <span class="nav-item-icon">⭐</span>
-        Favorites & Show Rules
-        <span class="nav-badge muted">{{ len(auto_keywords) + len(favorites_shows) }}</span>
-      </button>
 
       <div class="nav-section-label">Access Links</div>
       <div class="nav-item" style="cursor: pointer; font-size: 11px; font-family: var(--font-mono);" onclick="copyText('{{ lan_url }}', 'Home Wi-Fi link copied!')" title="Click to copy LAN URL">
@@ -738,10 +730,6 @@
         <div class="stat-tile-value" style="color: var(--amber);">{{ len(pending_episodes) }}</div>
         <div class="stat-tile-label">Older in backlog</div>
       </div>
-      <div class="stat-tile">
-        <div class="stat-tile-value" style="color: var(--secondary);">{{ len(auto_keywords) + len(favorites_shows) }}</div>
-        <div class="stat-tile-label">Active show rules</div>
-      </div>
 
       <div class="network-badge" style="cursor: pointer; background: var(--amber-dim); border-color: var(--amber-border); color: var(--amber-bright);" onclick="openAddUrlModal()" title="Add any video or stream by YouTube URL">
         <span>➕</span>
@@ -757,7 +745,7 @@
     <div class="content">
 
       <!-- ── Backlog Tab ── -->
-      <div class="tab-panel active" id="panelPending">
+      <div class="tab-panel" id="panelPending">
         <div class="section-header">
           <div>
             <div class="section-title">Backlog & Archives</div>
@@ -799,7 +787,7 @@
       </div>
 
       <!-- ── Ready Tab ── -->
-      <div class="tab-panel" id="panelReady">
+      <div class="tab-panel active" id="panelReady">
         <div class="section-header">
           <div>
             <div class="section-title">In Your Feed</div>
@@ -862,103 +850,8 @@
       </div>
       % end
 
-      <!-- ── Favorites & Show Rules Tab ── -->
-      <div class="tab-panel" id="panelFavorites">
-        <div class="section-header">
-          <div>
-            <div class="section-title">Favorites & Auto-Prepared Shows</div>
-            <div class="section-desc">Any videos matching these keywords will be converted automatically without waiting for manual approval.</div>
-          </div>
-          <button class="action-btn primary" onclick="openAddRuleModal()">+ Add Show Rule</button>
-        </div>
-
-        <div class="rules-grid">
-          <!-- Auto Include Keywords -->
-          % for kw in auto_keywords:
-          <div class="rule-card">
-            <div class="rule-info">
-              <span style="font-size: 18px;">⚡</span>
-              <div>
-                <div class="rule-keyword">{{ kw }}</div>
-                <div style="font-size: 11px; color: var(--secondary);">Auto-Prepare · Unlimited</div>
-              </div>
-            </div>
-            <div style="display:flex; align-items:center; gap: 10px;">
-              <span class="rule-badge auto">Always Grab</span>
-              <button class="rule-delete-btn" onclick="deleteRule('{{ kw }}')">Remove</button>
-            </div>
-          </div>
-          % end
-
-          <!-- Favorites Shows with Caps -->
-          % for show in favorites_shows:
-          <div class="rule-card">
-            <div class="rule-info">
-              <span style="font-size: 18px;">★</span>
-              <div>
-                <div class="rule-keyword">{{ show.get('keyword') }}</div>
-                <div style="font-size: 11px; color: var(--secondary);">
-                  Favorite Show ·
-                  % if show.get('max_per_sync'):
-                  Max {{ show.get('max_per_sync') }} per sync
-                  % else:
-                  Unlimited
-                  % end
-                </div>
-              </div>
-            </div>
-            <div style="display:flex; align-items:center; gap: 10px;">
-              <span class="rule-badge">Favorite</span>
-              <button class="rule-delete-btn" onclick="deleteRule('{{ show.get('keyword') }}')">Remove</button>
-            </div>
-          </div>
-          % end
-
-          % if not auto_keywords and not favorites_shows:
-          <div class="empty-state">
-            <div class="empty-icon">⭐</div>
-            <div class="empty-title">No show rules configured</div>
-            <div class="empty-body">Click "+ Add Show Rule" to auto-download your favorite shows.</div>
-          </div>
-          % end
-        </div>
-      </div>
-
     </div><!-- /content -->
   </main>
-</div>
-
-<!-- Add Rule Modal -->
-<div class="modal-backdrop" id="modalAddRule">
-  <div class="modal-box">
-    <div class="modal-title">Add Show Rule</div>
-    <div class="modal-sub">Videos containing this keyword in their title will be prepared automatically.</div>
-
-    <form onsubmit="submitRule(event)">
-      <div class="form-group">
-        <label class="form-label" for="ruleKeyword">Show Title or Keyword</label>
-        <input class="form-input" id="ruleKeyword" placeholder="e.g. Crowdsurfing, Live Q&A, Zee Garcia" required autofocus>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label" for="ruleType">Rule Type</label>
-        <select class="form-select" id="ruleType" onchange="toggleCapInput()">
-          <option value="auto">⚡ Always Auto-Prepare (Unlimited)</option>
-          <option value="favorite">★ Favorite Show (With Per-Sync Cap)</option>
-        </select>
-      </div>
-
-      <div class="form-group" id="groupCap" style="display: none;">
-        <label class="form-label" for="ruleCap">Max Episodes Per Sync (Cap)</label>
-        <input class="form-input" type="number" id="ruleCap" placeholder="e.g. 2 (leave blank for unlimited)" min="1" max="50">
-      </div>
-
-      <div class="modal-actions">
-        <button type="button" class="action-btn" onclick="closeAddRuleModal()">Cancel</button>
-        <button type="submit" class="action-btn primary">Save Rule</button>
-      </div>
-    </form>
-  </div>
 </div>
 
 <!-- Add From URL Modal -->
@@ -1024,10 +917,9 @@
 <script>
   // ─── Tab routing ───────────────────────────────────────
   const panels = {
-    pending: 'panelPending',
     ready: 'panelReady',
-    queued: 'panelQueued',
-    favorites: 'panelFavorites'
+    pending: 'panelPending',
+    queued: 'panelQueued'
   };
 
   function switchTab(name, btn) {
@@ -1330,82 +1222,6 @@
       showToast('Sync failed');
     } finally {
       if (btn) { btn.disabled = false; btn.innerHTML = origText; }
-    }
-  }
-
-  // ─── Modal / Rules Management ─────────────────────────
-  function openAddRuleModal() {
-    document.getElementById('modalAddRule').classList.add('active');
-    document.getElementById('ruleKeyword').focus();
-  }
-
-  function closeAddRuleModal() {
-    document.getElementById('modalAddRule').classList.remove('active');
-  }
-
-  function toggleCapInput() {
-    const type = document.getElementById('ruleType').value;
-    document.getElementById('groupCap').style.display = (type === 'favorite') ? 'block' : 'none';
-  }
-
-  async function submitRule(e) {
-    e.preventDefault();
-    const keyword = document.getElementById('ruleKeyword').value.trim();
-    const type = document.getElementById('ruleType').value;
-    const capVal = document.getElementById('ruleCap').value.trim();
-    const cap = (type === 'favorite' && capVal) ? parseInt(capVal) : null;
-
-    if (!keyword) return;
-
-    if (isCloud) {
-      closeAddRuleModal();
-      await dispatchCloudAction(
-        { action: 'add_favorite', keyword: keyword, rule_type: type, max_per_sync: cap ? String(cap) : '' },
-        `[Favorite]: ${keyword}`
-      );
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/favorites/add', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ keyword: keyword, type: type, max_per_sync: cap })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        showToast(data.message || 'Rule added!');
-        closeAddRuleModal();
-        setTimeout(() => location.reload(), 900);
-      } else {
-        showToast(data.error || 'Failed to add rule');
-      }
-    } catch (e) {
-      showToast('Failed to add rule');
-    }
-  }
-
-  async function deleteRule(keyword) {
-    if (!confirm(`Remove "${keyword}" from auto-prepared rules?`)) return;
-
-    if (isCloud) {
-      await dispatchCloudAction({ action: 'delete_favorite', keyword: keyword }, `[DeleteFavorite]: ${keyword}`);
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/favorites/delete', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ keyword: keyword })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        showToast(`Removed "${keyword}"`);
-        setTimeout(() => location.reload(), 700);
-      }
-    } catch (e) {
-      showToast('Failed to delete rule');
     }
   }
 

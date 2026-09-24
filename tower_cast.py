@@ -56,8 +56,100 @@ def get_components(config: Dict[str, Any]):
     server = WebServer(config, db, dl, yt, MEDIA_DIR)
     return db, yt, dl, server
 
+def process_github_triggers(config: Dict[str, Any], db: Database):
+    """Checks open GitHub Issues for remote queue, add-from-URL, or delete requests submitted from mobile."""
+    gh_cfg = config.get("github", {})
+    if not gh_cfg.get("enabled"):
+        return
+    repo = gh_cfg.get("repo")
+    if not repo:
+        return
+
+    try:
+        res = subprocess.run(
+            ["gh", "issue", "list", "--repo", repo, "--state", "open", "--json", "number,title,body"],
+            capture_output=True, text=True, check=True
+        )
+        issues = json.loads(res.stdout or "[]")
+        if not issues:
+            return
+
+        from engine.youtube import parse_youtube_url
+
+        for issue in issues:
+            num = issue.get("number")
+            title = (issue.get("title") or "").strip()
+
+            # Case 1: [Queue]: <video_id>
+            if title.startswith("[Queue]:"):
+                vid_id = title[len("[Queue]:"):].strip()
+                if vid_id and vid_id != "all":
+                    print(f"📥 Remote queue request from GitHub Issue #{num}: {vid_id}")
+                    db.upsert_discovered_episode(
+                        video_id=vid_id,
+                        title=f"Episode {vid_id}",
+                        url=f"https://www.youtube.com/watch?v={vid_id}",
+                        published_at=None,
+                        duration=None,
+                        thumbnail_url=f"https://i.ytimg.com/vi/{vid_id}/hq720.jpg",
+                        status="queued",
+                        matched_keyword="Mobile Queue"
+                    )
+                    subprocess.run(
+                        ["gh", "issue", "close", str(num), "--comment", f"Queued for download on Mac: `{vid_id}`", "--repo", repo],
+                        check=False
+                    )
+
+            # Case 2: [AddUrl]: <url or id> or [QueueUrl]: <url>
+            elif title.startswith("[AddUrl]:") or title.startswith("[QueueUrl]:"):
+                prefix = "[AddUrl]:" if title.startswith("[AddUrl]:") else "[QueueUrl]:"
+                raw_val = title[len(prefix):].strip()
+                vid_id = parse_youtube_url(raw_val) or raw_val
+                if vid_id:
+                    print(f"📥 Remote Add-from-URL request from GitHub Issue #{num}: {vid_id}")
+                    db.upsert_discovered_episode(
+                        video_id=vid_id,
+                        title=f"Episode {vid_id}",
+                        url=f"https://www.youtube.com/watch?v={vid_id}",
+                        published_at=None,
+                        duration=None,
+                        thumbnail_url=f"https://i.ytimg.com/vi/{vid_id}/hq720.jpg",
+                        status="queued",
+                        matched_keyword="Added via URL"
+                    )
+                    subprocess.run(
+                        ["gh", "issue", "close", str(num), "--comment", f"Added to download queue on Mac: `{vid_id}`", "--repo", repo],
+                        check=False
+                    )
+
+            # Case 3: [Delete]: <video_id>
+            elif title.startswith("[Delete]:"):
+                vid_id = title[len("[Delete]:"):].strip()
+                if vid_id:
+                    print(f"🗑 Remote delete request from GitHub Issue #{num}: {vid_id}")
+                    db.skip_episode(vid_id, allow_ready=True)
+                    ep_dir = os.path.join(MEDIA_DIR, vid_id)
+                    if os.path.exists(ep_dir):
+                        import shutil
+                        try:
+                            shutil.rmtree(ep_dir)
+                        except Exception:
+                            pass
+                    subprocess.run(["gh", "release", "delete", f"ep-{vid_id}", "--yes", "--repo", repo], check=False)
+                    subprocess.run(
+                        ["gh", "issue", "close", str(num), "--comment", f"Episode `{vid_id}` removed from feed and Releases.", "--repo", repo],
+                        check=False
+                    )
+    except Exception as e:
+        logger.warning(f"Could not check GitHub issues: {e}")
+
+
 def cmd_sync(args, config):
     db, yt, dl, _ = get_components(config)
+
+    # First, process any pending remote requests from GitHub Issues
+    process_github_triggers(config, db)
+
     limit = 150 if getattr(args, "backlog", False) else (args.limit or 30)
     print(f"\n📡 Scanning channel sources (uploads + live streams, limit={limit} each)...")
 
@@ -142,6 +234,10 @@ def cmd_sync(args, config):
     # Generate feed preview
     ready = db.get_ready_episodes()
     print(f"\n🎉 Sync complete! Total active podcast episodes in feed: {len(ready)}")
+
+    # Automatically publish to GitHub Releases and update GitHub Pages feed if enabled
+    if config.get("github", {}).get("enabled"):
+        cmd_publish(args, config)
 
 def cmd_pick(args, config):
     """Interactive terminal picker to select pending videos to grab."""
@@ -341,59 +437,6 @@ def cmd_github_setup(args, config):
     run_wizard()
 
 
-def cmd_favorites_list(args, config):
-    """Lists configured favorites shows."""
-    fav = config.get("favorites", {})
-    shows = fav.get("shows", [])
-    auto_kw = config.get("auto_include_keywords", [])
-
-    print("\n🎲 TowerCast — Configured Shows\n")
-    print("Auto-include (always grab, no cap):")
-    for kw in auto_kw:
-        print(f"  ⚡ {kw}")
-
-    print("\nFavorites (grab with optional per-sync cap):")
-    if not shows:
-        print("  (none — add with: python3 tower_cast.py favorites-add \"Show Keyword\")")
-    else:
-        for s in shows:
-            cap = s.get("max_per_sync")
-            cap_str = f"  [max {cap}/sync]" if cap else "  [unlimited]"
-            print(f"  ★  {s['keyword']}{cap_str}")
-    print()
-
-
-def cmd_favorites_add(args, config):
-    """Adds a keyword to favorites.shows in config.json."""
-    keyword = args.keyword.strip()
-    max_per_sync = args.max_per_sync  # may be None
-
-    fav = config.setdefault("favorites", {"enabled": True, "shows": []})
-    shows = fav.setdefault("shows", [])
-    fav["enabled"] = True
-
-    # Avoid duplicates
-    existing_kws = [s.get("keyword", "").lower() for s in shows]
-    if keyword.lower() in existing_kws:
-        print(f"  ℹ  '{keyword}' is already in favorites.")
-        return
-
-    entry = {"keyword": keyword}
-    if max_per_sync is not None:
-        entry["max_per_sync"] = max_per_sync
-
-    shows.append(entry)
-
-    with open(CONFIG_PATH, "w") as f:
-        json.dump(config, f, indent=2)
-
-    cap_str = f" (max {max_per_sync}/sync)" if max_per_sync else ""
-    print(f"  ★  Added favorite: '{keyword}'{cap_str}")
-    print(f"     Episodes matching this keyword will be auto-downloaded.")
-    if config.get("github", {}).get("enabled"):
-        print(f"     Push config.json to GitHub to apply: git add config.json && git commit -m 'Add favorite' && git push")
-
-
 def cmd_publish(args, config):
     """Uploads local ready episodes to GitHub Releases and triggers GitHub Pages feed rebuild."""
     gh_cfg = config.get("github", {})
@@ -491,15 +534,6 @@ def main():
         help="Interactive wizard: create GitHub repo, enable Pages, configure always-on feed"
     )
 
-    # favorites-list
-    subparsers.add_parser("favorites-list", help="List configured auto-include keywords and favorites")
-
-    # favorites-add
-    fav_add = subparsers.add_parser("favorites-add", help="Add a show keyword to favorites (auto-downloaded)")
-    fav_add.add_argument("keyword", help="Keyword to match in video titles (e.g. 'Zee Garcia')")
-    fav_add.add_argument("--max-per-sync", type=int, default=None,
-                         help="Max episodes to grab per sync (default: unlimited)")
-
     # publish
     pub_parser = subparsers.add_parser("publish", help="Upload local ready episodes to GitHub Releases and rebuild feed")
     pub_parser.add_argument("--rebuild", action="store_true", help="Force rebuild even if no new episodes were uploaded")
@@ -523,10 +557,6 @@ def main():
         cmd_status(args, config)
     elif args.command == "github-setup":
         cmd_github_setup(args, config)
-    elif args.command == "favorites-list":
-        cmd_favorites_list(args, config)
-    elif args.command == "favorites-add":
-        cmd_favorites_add(args, config)
     elif args.command == "publish":
         cmd_publish(args, config)
 

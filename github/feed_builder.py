@@ -340,54 +340,6 @@ def main():
             except Exception as e:
                 logger.warning(f"Could not close issue #{issue_num}: {e}")
 
-    # Handle favorite additions
-    if action in ("add_favorite", "favorite") and keyword:
-        logger.info(f"⭐ Adding favorite keyword: {keyword}")
-        fav = config.setdefault("favorites", {"enabled": True, "shows": []})
-        shows = fav.setdefault("shows", [])
-        if keyword.lower() not in [s.get("keyword", "").lower() for s in shows]:
-            shows.append({"keyword": keyword})
-            save_config(config)
-            # Commit config.json change
-            try:
-                subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=False)
-                subprocess.run(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"], check=False)
-                subprocess.run(["git", "add", "config.json"], check=False)
-                subprocess.run(["git", "commit", "-m", f"chore: add favorite {keyword}"], check=False)
-                subprocess.run(["git", "push"], check=False)
-            except Exception as e:
-                logger.warning(f"Could not commit favorite: {e}")
-        if issue_num:
-            try:
-                api.comment_issue(issue_num, f"Added favorite rule: `{keyword}`.")
-                api.close_issue(issue_num)
-            except Exception as e:
-                pass
-
-    # Handle favorite removals
-    if action in ("delete_favorite",) and keyword:
-        logger.info(f"🗑 Removing favorite keyword: {keyword}")
-        fav = config.setdefault("favorites", {"enabled": True, "shows": []})
-        shows = fav.setdefault("shows", [])
-        fav["shows"] = [s for s in shows if s.get("keyword", "").lower() != keyword.lower()]
-        auto_kws = config.get("auto_include_keywords", [])
-        config["auto_include_keywords"] = [k for k in auto_kws if k.lower() != keyword.lower()]
-        save_config(config)
-        try:
-            subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=False)
-            subprocess.run(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"], check=False)
-            subprocess.run(["git", "add", "config.json"], check=False)
-            subprocess.run(["git", "commit", "-m", f"chore: delete favorite {keyword}"], check=False)
-            subprocess.run(["git", "push"], check=False)
-        except Exception as e:
-            logger.warning(f"Could not commit favorite removal: {e}")
-        if issue_num:
-            try:
-                api.comment_issue(issue_num, f"Removed favorite rule: `{keyword}`.")
-                api.close_issue(issue_num)
-            except Exception as e:
-                pass
-
     # Handle single video queueing
     if action == "queue" and target_video_id:
         logger.info(f"⚡ Processing direct queue for video: {target_video_id}")
@@ -402,9 +354,11 @@ def main():
         res = download_and_upload(target_video_id, video_url, classified, api, config)
         if issue_num:
             try:
-                status_txt = "Successfully downloaded and added to feed!" if res else "Download failed (may require cookies in CI)."
-                api.comment_issue(issue_num, f"Queue result for `{target_video_id}`: {status_txt}")
-                api.close_issue(issue_num)
+                if res:
+                    api.comment_issue(issue_num, f"Successfully downloaded and added to feed!")
+                    api.close_issue(issue_num)
+                else:
+                    api.comment_issue(issue_num, f"YouTube requires residential IP. Queued for your Mac background runner to download on next hourly sync.")
             except Exception as e:
                 pass
 

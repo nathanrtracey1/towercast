@@ -1,21 +1,6 @@
 {
   "channel_url": "https://www.youtube.com/@TheDiceTower/videos",
   "auto_download_all_new": true,
-  "auto_include_keywords": [
-    "Board Game Breakfast",
-    "Dice Tower News",
-    "Crowdsurfing",
-    "Top 10"
-  ],
-  "favorites": {
-    "enabled": true,
-    "comment": "Favorites are queued automatically like auto_include_keywords but support a max_per_sync cap so you don't get flooded. Leave max_per_sync as null for unlimited.",
-    "shows": [
-      {
-        "keyword": "Live Q&A"
-      }
-    ]
-  },
   "exclude_shorts": true,
   "shorts_max_seconds": 60,
   "audio_format": "m4a",
