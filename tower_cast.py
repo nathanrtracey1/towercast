@@ -172,13 +172,16 @@ def cmd_sync(args, config):
         vid_id = classified["id"]
         title = classified["title"]
 
+        if classified.get("is_scheduled_or_live"):
+            continue
+
         if classified["is_short"]:
             shorts_skipped += 1
             db.upsert_discovered_episode(
                 video_id=vid_id,
                 title=title,
                 url=classified["url"],
-                published_at=None,
+                published_at=classified.get("published_at"),
                 duration=classified["duration"],
                 thumbnail_url=classified["thumbnail_url"],
                 status="skipped"
@@ -189,7 +192,7 @@ def cmd_sync(args, config):
             video_id=vid_id,
             title=title,
             url=classified["url"],
-            published_at=None,
+            published_at=classified.get("published_at"),
             duration=classified["duration"],
             thumbnail_url=classified["thumbnail_url"],
             status=classified["target_status"],

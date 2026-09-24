@@ -29,7 +29,7 @@ sys.path.insert(0, str(ROOT))
 
 from engine.youtube import YouTubeEngine, parse_youtube_url
 from engine.downloader import Downloader
-from engine.feed_generator import FeedGenerator, format_duration, parse_to_rfc822
+from engine.feed_generator import FeedGenerator, format_duration, parse_to_rfc822, parse_date_to_datetime
 from github.github_api import GitHubAPI
 
 logging.basicConfig(
@@ -392,7 +392,7 @@ def main():
             classified = yt.classify_entry(entry, is_backlog=is_backlog)
             vid_id = classified["id"]
 
-            if classified["is_short"] or vid_id in existing:
+            if classified.get("is_scheduled_or_live") or classified["is_short"] or vid_id in existing:
                 continue
 
             if classified["target_status"] == "queued":
@@ -410,6 +410,12 @@ def main():
                 # Add to Backlog list for on-demand downloading
                 pending_entries.append(classified)
 
+        # Sort pending entries chronologically (newest first)
+        pending_entries.sort(
+            key=lambda ep: parse_date_to_datetime(ep.get("published_at")),
+            reverse=True
+        )
+
     except Exception as e:
         logger.error(f"Channel scan failed: {e}")
 
@@ -418,10 +424,16 @@ def main():
     all_releases = api.list_releases(per_page=100)
     all_episodes: List[Dict] = []
 
-    for rel in sorted(all_releases, key=lambda r: r.get("published_at", ""), reverse=True):
+    for rel in all_releases:
         ep = episode_from_release(rel)
         if ep:
             all_episodes.append(ep)
+
+    # Sort strictly chronologically by original YouTube published_at (newest first)
+    all_episodes.sort(
+        key=lambda ep: parse_date_to_datetime(ep.get("published_at")),
+        reverse=True
+    )
 
     max_eps = config.get("max_episodes_in_feed", 50)
     all_episodes = all_episodes[:max_eps]

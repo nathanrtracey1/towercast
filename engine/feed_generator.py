@@ -6,7 +6,7 @@ import os
 import re
 import json
 from datetime import datetime, timezone
-from email.utils import format_datetime
+from email.utils import format_datetime, parsedate_to_datetime
 from xml.etree import ElementTree as ET
 from xml.dom import minidom
 from typing import List, Dict, Any, Optional
@@ -21,20 +21,51 @@ def format_duration(seconds: Optional[int]) -> str:
         return f"{h:02d}:{m:02d}:{s:02d}"
     return f"{m:02d}:{s:02d}"
 
-def parse_to_rfc822(date_str: Optional[str]) -> str:
-    """Converts ISO or YYYY-MM-DD date string to RFC 822 format."""
-    if not date_str:
-        return format_datetime(datetime.now(timezone.utc))
+def parse_date_to_datetime(val: Any) -> datetime:
+    """Parses various date/time formats into an aware UTC datetime object."""
+    if not val:
+        return datetime.now(timezone.utc)
+    if isinstance(val, (int, float)):
+        try:
+            return datetime.fromtimestamp(val, tz=timezone.utc)
+        except Exception:
+            return datetime.now(timezone.utc)
+    if isinstance(val, datetime):
+        return val if val.tzinfo else val.replace(tzinfo=timezone.utc)
+    val_str = str(val).strip()
+    if not val_str:
+        return datetime.now(timezone.utc)
+    # ISO 8601
     try:
-        if "T" in date_str:
-            dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-        else:
-            dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return format_datetime(dt)
+        if "T" in val_str:
+            dt = datetime.fromisoformat(val_str.replace("Z", "+00:00"))
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
     except Exception:
-        return format_datetime(datetime.now(timezone.utc))
+        pass
+    # YYYY-MM-DD HH:MM:SS
+    try:
+        dt = datetime.strptime(val_str, "%Y-%m-%d %H:%M:%S")
+        return dt.replace(tzinfo=timezone.utc)
+    except Exception:
+        pass
+    # YYYY-MM-DD
+    try:
+        dt = datetime.strptime(val_str, "%Y-%m-%d")
+        return dt.replace(tzinfo=timezone.utc)
+    except Exception:
+        pass
+    # RFC 2822 / 822 format
+    try:
+        dt = parsedate_to_datetime(val_str)
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except Exception:
+        pass
+    return datetime.now(timezone.utc)
+
+def parse_to_rfc822(date_str: Optional[str]) -> str:
+    """Converts any date string or timestamp to RFC 822 format."""
+    dt = parse_date_to_datetime(date_str)
+    return format_datetime(dt)
 
 class FeedGenerator:
     def __init__(self, config: Dict[str, Any]):
@@ -115,8 +146,13 @@ class FeedGenerator:
             ET.SubElement(img, "title").text = self.feed_title
             ET.SubElement(img, "link").text = self.public_base_url
 
-        # Episode items
-        for ep in episodes:
+        # Episode items (strictly sorted reverse-chronological by publication date)
+        sorted_episodes = sorted(
+            episodes,
+            key=lambda ep: parse_date_to_datetime(ep.get("published_at")),
+            reverse=True
+        )
+        for ep in sorted_episodes:
             self._add_episode_item(channel, ep, use_full_audio_url=False)
 
         xml_bytes = ET.tostring(rss, encoding="utf-8")
@@ -161,7 +197,13 @@ class FeedGenerator:
             ET.SubElement(img, "title").text = self.feed_title
             ET.SubElement(img, "link").text = self.public_base_url
 
-        for ep in episodes:
+        # Episode items (strictly sorted reverse-chronological by publication date)
+        sorted_episodes = sorted(
+            episodes,
+            key=lambda ep: parse_date_to_datetime(ep.get("published_at")),
+            reverse=True
+        )
+        for ep in sorted_episodes:
             self._add_episode_item(channel, ep, use_full_audio_url=True)
 
         xml_bytes = ET.tostring(rss, encoding="utf-8")

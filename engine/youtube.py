@@ -7,6 +7,7 @@ import json
 import logging
 import re
 import subprocess
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple, Any
 
 logger = logging.getLogger(__name__)
@@ -69,12 +70,31 @@ class YouTubeEngine:
             urls = [f"{base}/videos", f"{base}/streams"]
         return urls
 
+    @staticmethod
+    def is_scheduled_or_live(entry: Dict[str, Any]) -> bool:
+        """
+        Determines if a video entry is currently an upcoming scheduled live stream
+        or an active in-progress live stream.
+        """
+        status = entry.get("live_status")
+        if status in ("is_upcoming", "is_live", "post_live"):
+            return True
+        # If duration is missing and status indicates live or is not confirmed completed
+        if entry.get("duration") is None and status != "was_live":
+            title = (entry.get("title") or "").lower()
+            if "live in " in title or "premieres in " in title or "scheduled for" in title:
+                return True
+            if status in ("is_upcoming", "is_live", "post_live"):
+                return True
+        return False
+
     def fetch_channel_entries(
         self, limit: int = 30
     ) -> Tuple[Optional[Dict[str, Any]], List[Dict[str, Any]]]:
         """
         Extracts recent video entries from the channel (both uploads and live streams).
         Uses yt-dlp --flat-playlist for fast metadata retrieval.
+        Filters out scheduled/active live streams and sorts all entries chronologically.
         Returns: (channel_metadata, list_of_video_entries)
         """
         urls = self._get_scan_urls()
@@ -87,6 +107,7 @@ class YouTubeEngine:
                 "yt-dlp",
                 "--flat-playlist",
                 "--dump-single-json",
+                "--extractor-args", "youtube:approximate_date",
                 "--playlist-end", str(limit),
                 url,
             ]
@@ -114,10 +135,31 @@ class YouTubeEngine:
                 for e in entries:
                     eid = e.get("id")
                     if eid and eid not in seen_ids:
+                        if self.is_scheduled_or_live(e):
+                            logger.info(f"Skipping scheduled/active live stream: {eid} - {e.get('title')}")
+                            continue
                         seen_ids.add(eid)
                         all_entries.append(e)
             except Exception as e:
                 logger.warning(f"Error scanning source {url}: {e}")
+
+        # Sort all entries in reverse chronological order (newest first)
+        def _sort_key(entry: Dict[str, Any]) -> float:
+            ts = entry.get("timestamp") or entry.get("release_timestamp")
+            if ts and isinstance(ts, (int, float)):
+                return float(ts)
+            ud = entry.get("upload_date")
+            if ud and len(str(ud)) == 8:
+                try:
+                    dt = datetime.strptime(str(ud), "%Y%m%d").replace(tzinfo=timezone.utc)
+                    return dt.timestamp()
+                except Exception:
+                    pass
+            return 0.0
+
+        has_timestamps = any(_sort_key(e) > 0 for e in all_entries)
+        if has_timestamps:
+            all_entries.sort(key=_sort_key, reverse=True)
 
         if not channel_info:
             channel_info = {
@@ -167,14 +209,15 @@ class YouTubeEngine:
         Classifies a video entry:
           target_status = 'queued'  → auto-download (all new videos or matched keyword)
           target_status = 'pending' → backlog manual pick
-          target_status = 'skipped' → Short
+          target_status = 'skipped' → Short or scheduled stream
         """
         title = entry.get("title", "")
         is_sh = self.is_short(entry)
+        is_sched_or_live = self.is_scheduled_or_live(entry)
         matched_kw = None
         is_favorite = False
 
-        if not is_sh:
+        if not is_sh and not is_sched_or_live:
             matched_kw = self.match_auto_keyword(title)
             if matched_kw is None:
                 fav_kw = self.match_favorite_keyword(title)
@@ -182,7 +225,7 @@ class YouTubeEngine:
                     matched_kw = fav_kw
                     is_favorite = True
 
-        if is_sh:
+        if is_sched_or_live or is_sh:
             target_status = "skipped"
         elif matched_kw:
             target_status = "queued"
@@ -199,6 +242,22 @@ class YouTubeEngine:
                 best_thumb = t.get("url")
                 break
 
+        # Calculate published_at timestamp if present
+        published_at = None
+        ts = entry.get("timestamp") or entry.get("release_timestamp")
+        if ts and isinstance(ts, (int, float)):
+            try:
+                published_at = datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            except Exception:
+                pass
+        if not published_at and entry.get("upload_date"):
+            ud = str(entry.get("upload_date"))
+            if len(ud) == 8:
+                try:
+                    published_at = datetime.strptime(ud, "%Y%m%d").strftime("%Y-%m-%d %H:%M:%S")
+                except Exception:
+                    pass
+
         return {
             "id": entry.get("id"),
             "title": title,
@@ -206,6 +265,8 @@ class YouTubeEngine:
             "duration": entry.get("duration"),
             "thumbnail_url": best_thumb,
             "is_short": is_sh,
+            "is_scheduled_or_live": is_sched_or_live,
+            "published_at": published_at,
             "matched_keyword": matched_kw,
             "is_favorite": is_favorite,
             "target_status": target_status,

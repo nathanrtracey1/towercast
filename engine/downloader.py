@@ -113,15 +113,24 @@ class Downloader:
             except Exception as e:
                 logger.warning(f"Could not parse info.json: {e}")
 
-        # Parse publication date
+        # Parse publication date with exact second precision
         published_at = None
-        upload_date = info_data.get("upload_date")
-        if upload_date and len(upload_date) == 8:
+        ts = info_data.get("release_timestamp") or info_data.get("timestamp")
+        if ts and isinstance(ts, (int, float)):
             try:
-                dt = datetime.strptime(upload_date, "%Y%m%d")
+                dt = datetime.fromtimestamp(ts, tz=timezone.utc)
                 published_at = dt.strftime("%Y-%m-%d %H:%M:%S")
             except Exception:
                 pass
+
+        if not published_at:
+            upload_date = info_data.get("upload_date")
+            if upload_date and len(upload_date) == 8:
+                try:
+                    dt = datetime.strptime(upload_date, "%Y%m%d").replace(tzinfo=timezone.utc)
+                    published_at = dt.strftime("%Y-%m-%d %H:%M:%S")
+                except Exception:
+                    pass
 
         if not published_at:
             published_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")

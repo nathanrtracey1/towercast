@@ -183,5 +183,91 @@ class TestTowerCast(unittest.TestCase):
         c_backlog = yt_auto.classify_entry(new_ep, is_backlog=True)
         self.assertEqual(c_backlog["target_status"], "pending")
 
+    def test_live_stream_filtering_and_lifecycle(self):
+        # 1. Upcoming scheduled live stream: must be detected and skipped (not pending/queued)
+        upcoming_stream = {
+            "id": "sched_live",
+            "title": "Dice Tower News - Sept 25th (Live)",
+            "live_status": "is_upcoming",
+            "duration": None
+        }
+        self.assertTrue(self.yt.is_scheduled_or_live(upcoming_stream))
+        c_upcoming = self.yt.classify_entry(upcoming_stream)
+        self.assertEqual(c_upcoming["target_status"], "skipped")
+        self.assertTrue(c_upcoming["is_scheduled_or_live"])
+
+        # 2. In-progress live stream: must be detected and skipped
+        active_stream = {
+            "id": "active_live",
+            "title": "Dice Tower Live Q&A",
+            "live_status": "is_live",
+            "duration": None
+        }
+        self.assertTrue(self.yt.is_scheduled_or_live(active_stream))
+        c_active = self.yt.classify_entry(active_stream)
+        self.assertEqual(c_active["target_status"], "skipped")
+
+        # 3. Finished live stream (was_live with duration): treated as regular new video
+        finished_stream = {
+            "id": "vod_live",
+            "title": "Dice Tower News - Sept 24th, 2026",
+            "live_status": "was_live",
+            "duration": 3600,
+            "timestamp": 1788890458
+        }
+        self.assertFalse(self.yt.is_scheduled_or_live(finished_stream))
+        c_finished = self.yt.classify_entry(finished_stream, is_backlog=False)
+        self.assertFalse(c_finished["is_scheduled_or_live"])
+        # Should be queued for download into feed (matches keyword "dice tower news")
+        self.assertEqual(c_finished["target_status"], "queued")
+        self.assertIsNotNone(c_finished["published_at"])
+
+    def test_feed_chronological_ordering(self):
+        from engine.feed_generator import parse_date_to_datetime
+
+        feed_gen = FeedGenerator(self.config)
+        # Episodes provided out of chronological order
+        episodes = [
+            {"id": "ep_old", "title": "Old Episode", "published_at": "2026-09-01 10:00:00", "audio_filename": "ep_old/a.m4a"},
+            {"id": "ep_newest", "title": "Newest Episode", "published_at": "2026-09-24 15:30:00", "audio_filename": "ep_newest/a.m4a"},
+            {"id": "ep_mid", "title": "Middle Episode", "published_at": "2026-09-15 12:00:00", "audio_filename": "ep_mid/a.m4a"},
+        ]
+
+        xml_str = feed_gen.generate_feed_xml(episodes)
+        root = ET.fromstring(xml_str)
+        items = root.findall(".//item")
+        self.assertEqual(len(items), 3)
+
+        # The first item in the feed must be the newest
+        self.assertEqual(items[0].find("title").text, "Newest Episode")
+        self.assertEqual(items[1].find("title").text, "Middle Episode")
+        self.assertEqual(items[2].find("title").text, "Old Episode")
+
+    def test_parse_date_robustness(self):
+        from engine.feed_generator import parse_date_to_datetime, parse_to_rfc822
+
+        # ISO format
+        dt1 = parse_date_to_datetime("2026-09-24T14:30:00Z")
+        self.assertEqual(dt1.year, 2026)
+        self.assertEqual(dt1.hour, 14)
+
+        # YYYY-MM-DD HH:MM:SS
+        dt2 = parse_date_to_datetime("2026-09-24 14:30:00")
+        self.assertEqual(dt2.year, 2026)
+        self.assertEqual(dt2.minute, 30)
+
+        # YYYY-MM-DD without time
+        dt3 = parse_date_to_datetime("2026-09-24")
+        self.assertEqual(dt3.year, 2026)
+        self.assertEqual(dt3.day, 24)
+
+        # Unix epoch int
+        dt4 = parse_date_to_datetime(1788890458)
+        self.assertIsNotNone(dt4)
+
+        # Valid RFC 822 output
+        rfc = parse_to_rfc822("2026-09-24")
+        self.assertIn("2026", rfc)
+
 if __name__ == "__main__":
     unittest.main()

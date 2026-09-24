@@ -128,7 +128,15 @@ class Database:
             conn.close()
 
     def get_pending_episodes(self, limit: int = 50) -> List[Dict[str, Any]]:
-        return self.get_episodes_by_status("pending", limit)
+        conn = self._get_conn()
+        try:
+            cur = conn.execute(
+                "SELECT * FROM episodes WHERE status = 'pending' ORDER BY COALESCE(published_at, created_at) DESC LIMIT ?",
+                (limit,)
+            )
+            return [dict(r) for r in cur.fetchall()]
+        finally:
+            conn.close()
 
     def get_queued_episodes(self, limit: int = 50) -> List[Dict[str, Any]]:
         return self.get_episodes_by_status("queued", limit)
