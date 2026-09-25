@@ -94,13 +94,17 @@ class YouTubeEngine:
         """
         Extracts recent video entries from the channel (both uploads and live streams).
         Uses yt-dlp --flat-playlist for fast metadata retrieval.
-        Filters out scheduled/active live streams and sorts all entries chronologically.
+        Filters out scheduled/active live streams and groups recent episodes first.
         Returns: (channel_metadata, list_of_video_entries)
         """
         urls = self._get_scan_urls()
         all_entries: List[Dict[str, Any]] = []
         seen_ids = set()
         channel_info = None
+
+        recent_entries: List[Dict[str, Any]] = []
+        backlog_entries: List[Dict[str, Any]] = []
+        recent_threshold = 15
 
         for url in urls:
             cmd = [
@@ -132,34 +136,24 @@ class YouTubeEngine:
                     if not channel_info["avatar"] and data.get("thumbnails"):
                         channel_info["avatar"] = data["thumbnails"][-1].get("url")
 
-                for e in entries:
+                for url_idx, e in enumerate(entries):
                     eid = e.get("id")
                     if eid and eid not in seen_ids:
                         if self.is_scheduled_or_live(e):
                             logger.info(f"Skipping scheduled/active live stream: {eid} - {e.get('title')}")
                             continue
                         seen_ids.add(eid)
-                        all_entries.append(e)
+                        is_recent = (url_idx < recent_threshold)
+                        e["is_recent"] = is_recent
+                        if is_recent:
+                            recent_entries.append(e)
+                        else:
+                            backlog_entries.append(e)
             except Exception as e:
                 logger.warning(f"Error scanning source {url}: {e}")
 
-        # Sort all entries in reverse chronological order (newest first)
-        def _sort_key(entry: Dict[str, Any]) -> float:
-            ts = entry.get("timestamp") or entry.get("release_timestamp")
-            if ts and isinstance(ts, (int, float)):
-                return float(ts)
-            ud = entry.get("upload_date")
-            if ud and len(str(ud)) == 8:
-                try:
-                    dt = datetime.strptime(str(ud), "%Y%m%d").replace(tzinfo=timezone.utc)
-                    return dt.timestamp()
-                except Exception:
-                    pass
-            return 0.0
-
-        has_timestamps = any(_sort_key(e) > 0 for e in all_entries)
-        if has_timestamps:
-            all_entries.sort(key=_sort_key, reverse=True)
+        # Put all recent entries first, followed by backlog entries
+        all_entries = recent_entries + backlog_entries
 
         if not channel_info:
             channel_info = {
@@ -204,13 +198,15 @@ class YouTubeEngine:
                 return kw
         return None
 
-    def classify_entry(self, entry: Dict[str, Any], is_backlog: bool = False) -> Dict[str, Any]:
+    def classify_entry(self, entry: Dict[str, Any], is_backlog: Optional[bool] = None) -> Dict[str, Any]:
         """
         Classifies a video entry:
           target_status = 'queued'  → auto-download (all new videos or matched keyword)
           target_status = 'pending' → backlog manual pick
           target_status = 'skipped' → Short or scheduled stream
         """
+        if is_backlog is None:
+            is_backlog = not entry.get("is_recent", True)
         title = entry.get("title", "")
         is_sh = self.is_short(entry)
         is_sched_or_live = self.is_scheduled_or_live(entry)

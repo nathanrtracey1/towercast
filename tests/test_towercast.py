@@ -269,5 +269,33 @@ class TestTowerCast(unittest.TestCase):
         rfc = parse_to_rfc822("2026-09-24")
         self.assertIn("2026", rfc)
 
+    def test_recent_vs_backlog_classification(self):
+        # Entry tagged with is_recent=True should be auto-queued even if index is high
+        yt_auto = YouTubeEngine(
+            channel_url="https://youtube.com/@TheDiceTower",
+            auto_keywords=[],
+            auto_download_all_new=True
+        )
+        recent_entry = {
+            "id": "recent_stream_1",
+            "title": "Fresh Finished Live Stream",
+            "duration": 3600,
+            "live_status": "was_live",
+            "is_recent": True
+        }
+        c_recent = yt_auto.classify_entry(recent_entry)
+        self.assertEqual(c_recent["target_status"], "queued")
+        self.assertEqual(c_recent["matched_keyword"], "New Episode")
+
+        # Entry tagged with is_recent=False should be marked pending (backlog)
+        backlog_entry = {
+            "id": "old_video_99",
+            "title": "Ancient Video from 2024",
+            "duration": 900,
+            "is_recent": False
+        }
+        c_backlog = yt_auto.classify_entry(backlog_entry)
+        self.assertEqual(c_backlog["target_status"], "pending")
+
 if __name__ == "__main__":
     unittest.main()

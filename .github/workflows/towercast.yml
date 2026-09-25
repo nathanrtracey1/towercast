@@ -1,9 +1,9 @@
 name: TowerCast Sync
 
 on:
-  # Run every hour to capture new uploads and live streams
+  # Run every hour at :05 to capture new uploads and live streams
   schedule:
-    - cron: '0 * * * *'
+    - cron: '5 * * * *'
 
   # Manual dispatch or mobile GitHub Pages trigger
   workflow_dispatch:

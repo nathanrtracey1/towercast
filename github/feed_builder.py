@@ -388,7 +388,7 @@ def main():
         new_batch_threshold = 15
 
         for idx, entry in enumerate(entries):
-            is_backlog = (idx >= new_batch_threshold)
+            is_backlog = not entry.get("is_recent", True) if "is_recent" in entry else (idx >= new_batch_threshold)
             classified = yt.classify_entry(entry, is_backlog=is_backlog)
             vid_id = classified["id"]
 
