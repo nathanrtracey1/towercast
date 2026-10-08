@@ -360,5 +360,35 @@ class TestTowerCast(unittest.TestCase):
         loaded2 = load_dismissed_ids(mock_api)
         self.assertEqual(loaded2, {"vid1", "vid2", "vid3"})
 
+    def test_audio_padding_and_exact_duration(self):
+        import subprocess
+        from engine.downloader import Downloader
+
+        dl = Downloader(media_dir=self.temp_dir.name)
+        if not dl.ffmpeg_bin or not dl.ffprobe_bin:
+            return  # skip if tools not available in environment
+
+        # Generate a 1-second test m4a
+        test_audio = os.path.join(self.temp_dir.name, "test_tone.m4a")
+        res = subprocess.run([
+            dl.ffmpeg_bin, "-y",
+            "-f", "lavfi", "-i", "sine=frequency=1000:duration=1",
+            "-c:a", "aac", "-b:a", "128k",
+            test_audio
+        ], capture_output=True)
+        self.assertEqual(res.returncode, 0)
+
+        # Initial duration should be 1 second
+        dur_initial = dl._get_exact_duration(test_audio)
+        self.assertEqual(dur_initial, 1)
+
+        # Pad 4 seconds of trailing silence
+        padded = dl._pad_audio_tail(test_audio, pad_seconds=4)
+        self.assertTrue(padded)
+
+        # Final duration should now be 5 seconds
+        dur_padded = dl._get_exact_duration(test_audio)
+        self.assertEqual(dur_padded, 5)
+
 if __name__ == "__main__":
     unittest.main()

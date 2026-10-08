@@ -19,6 +19,8 @@ class Downloader:
         self.audio_format = audio_format
         self.audio_quality = audio_quality
         self.cookies_file = cookies_file
+        self.ffmpeg_bin = shutil.which("ffmpeg") or ("/opt/homebrew/bin/ffmpeg" if os.path.exists("/opt/homebrew/bin/ffmpeg") else "/usr/bin/ffmpeg")
+        self.ffprobe_bin = shutil.which("ffprobe") or ("/opt/homebrew/bin/ffprobe" if os.path.exists("/opt/homebrew/bin/ffprobe") else "/usr/bin/ffprobe")
         os.makedirs(self.media_dir, exist_ok=True)
 
     def download_episode(self, video_id: str, video_url: str) -> Dict[str, Any]:
@@ -55,6 +57,8 @@ class Downloader:
             "--write-thumbnail",
             "--write-info-json",
             "--no-playlist",
+            "--retries", "10",
+            "--fragment-retries", "10",
         ]
 
         if ffmpeg_dir:
@@ -92,6 +96,9 @@ class Downloader:
 
         if proc.returncode != 0:
             logger.warning(f"yt-dlp exited {proc.returncode} for {video_id} but audio file found — treating as success with warnings.")
+
+        # Add trailing silence cushion (4 seconds) so Overcast / Smart Speed / streaming EOF never cuts off speech
+        self._pad_audio_tail(audio_file, pad_seconds=4)
 
         file_size = os.path.getsize(audio_file)
 
@@ -135,7 +142,8 @@ class Downloader:
         if not published_at:
             published_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
-        duration = info_data.get("duration")
+        exact_duration = self._get_exact_duration(audio_file)
+        duration = exact_duration if exact_duration is not None else info_data.get("duration")
         description = info_data.get("description", "")
         title = info_data.get("title")
         chapters = info_data.get("chapters", [])
@@ -177,3 +185,61 @@ class Downloader:
         if candidates:
             return os.path.join(ep_dir, sorted(candidates)[0])
         return None
+
+    def _pad_audio_tail(self, audio_path: str, pad_seconds: int = 4) -> bool:
+        """
+        Appends pad_seconds of trailing silence to the audio file.
+        This provides a crucial audio cushion so podcast players like Overcast
+        (and features like Smart Speed or streaming EOF) never clip the sign-off or outro.
+        """
+        if not os.path.exists(audio_path) or pad_seconds <= 0 or not self.ffmpeg_bin:
+            return False
+
+        temp_padded = audio_path + ".padded.m4a"
+        try:
+            cmd = [
+                self.ffmpeg_bin, "-y",
+                "-i", audio_path,
+                "-af", f"apad=pad_dur={pad_seconds}",
+                "-map", "0:a",
+                "-map", "0:v?",
+                "-map_metadata", "0",
+                "-map_chapters", "0",
+                "-c:v", "copy",
+                "-c:a", "aac",
+                "-b:a", self.audio_quality if self.audio_quality else "192k",
+                "-movflags", "+faststart",
+                temp_padded
+            ]
+            res = subprocess.run(cmd, capture_output=True, text=True)
+            if res.returncode == 0 and os.path.exists(temp_padded) and os.path.getsize(temp_padded) > 0:
+                os.replace(temp_padded, audio_path)
+                logger.info(f"Padded {pad_seconds}s trailing audio buffer to {os.path.basename(audio_path)}")
+                return True
+            else:
+                logger.warning(f"Could not pad audio: {res.stderr}")
+        except Exception as e:
+            logger.warning(f"Audio padding skipped: {e}")
+        finally:
+            if os.path.exists(temp_padded):
+                try:
+                    os.remove(temp_padded)
+                except Exception:
+                    pass
+        return False
+
+    def _get_exact_duration(self, audio_path: str) -> Optional[int]:
+        """Probes the actual audio file for its exact duration in seconds."""
+        if not self.ffprobe_bin or not os.path.exists(audio_path):
+            return None
+        try:
+            res = subprocess.run(
+                [self.ffprobe_bin, "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", audio_path],
+                capture_output=True, text=True, check=True
+            )
+            val = float(res.stdout.strip())
+            return int(round(val))
+        except Exception as e:
+            logger.warning(f"Could not determine exact duration via ffprobe: {e}")
+            return None
+
