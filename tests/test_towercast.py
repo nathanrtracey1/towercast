@@ -297,5 +297,68 @@ class TestTowerCast(unittest.TestCase):
         c_backlog = yt_auto.classify_entry(backlog_entry)
         self.assertEqual(c_backlog["target_status"], "pending")
 
+    def test_batch_delete_and_clear_feed_database(self):
+        # Insert 3 ready episodes
+        self.db.upsert_discovered_episode("ep_a", "Ep A", "url_a", None, 100, "", "ready")
+        self.db.upsert_discovered_episode("ep_b", "Ep B", "url_b", None, 100, "", "ready")
+        self.db.upsert_discovered_episode("ep_c", "Ep C", "url_c", None, 100, "", "ready")
+
+        self.assertEqual(len(self.db.get_ready_episodes()), 3)
+
+        # Batch delete 2 episodes
+        self.db.skip_episodes_batch(["ep_a", "ep_b"])
+        ready = self.db.get_ready_episodes()
+        self.assertEqual(len(ready), 1)
+        self.assertEqual(ready[0]["id"], "ep_c")
+
+        # Clear ready episodes
+        self.db.clear_ready_episodes()
+        self.assertEqual(len(self.db.get_ready_episodes()), 0)
+
+    def test_tombstone_history_and_issue_handling(self):
+        from github.feed_builder import (
+            HISTORY_RELEASE_TAG,
+            load_dismissed_ids,
+            save_dismissed_ids
+        )
+
+        class MockGitHubAPI:
+            def __init__(self):
+                self.releases = {}
+
+            def get_release_by_tag(self, tag):
+                return self.releases.get(tag)
+
+            def create_release(self, tag, name, body="", draft=False, prerelease=False):
+                rel = {"id": 1, "tag_name": tag, "name": name, "body": body}
+                self.releases[tag] = rel
+                return rel
+
+            def update_release(self, release_id, body=None, name=None):
+                for rel in self.releases.values():
+                    if rel["id"] == release_id:
+                        if body is not None:
+                            rel["body"] = body
+                        if name is not None:
+                            rel["name"] = name
+                        return rel
+                return {}
+
+        mock_api = MockGitHubAPI()
+
+        # Initially no dismissed IDs
+        ids = load_dismissed_ids(mock_api)
+        self.assertEqual(len(ids), 0)
+
+        # Save dismissed IDs
+        save_dismissed_ids(mock_api, {"vid1", "vid2"})
+        loaded = load_dismissed_ids(mock_api)
+        self.assertEqual(loaded, {"vid1", "vid2"})
+
+        # Update dismissed IDs
+        save_dismissed_ids(mock_api, {"vid1", "vid2", "vid3"})
+        loaded2 = load_dismissed_ids(mock_api)
+        self.assertEqual(loaded2, {"vid1", "vid2", "vid3"})
+
 if __name__ == "__main__":
     unittest.main()

@@ -177,6 +177,28 @@ class Database:
             return True
         return False
 
+    def skip_episodes_batch(self, video_ids: List[str]) -> int:
+        """Marks multiple episodes as skipped."""
+        if not video_ids:
+            return 0
+        conn = self._get_conn()
+        try:
+            with conn:
+                cur = conn.executemany("UPDATE episodes SET status = 'skipped' WHERE id = ?", [(vid,) for vid in video_ids])
+                return cur.rowcount
+        finally:
+            conn.close()
+
+    def clear_ready_episodes(self) -> int:
+        """Marks all currently ready episodes as skipped."""
+        conn = self._get_conn()
+        try:
+            with conn:
+                cur = conn.execute("UPDATE episodes SET status = 'skipped' WHERE status = 'ready'")
+                return cur.rowcount
+        finally:
+            conn.close()
+
     def delete_episode(self, video_id: str):
         conn = self._get_conn()
         try:
@@ -184,3 +206,4 @@ class Database:
                 conn.execute("DELETE FROM episodes WHERE id = ?", (video_id,))
         finally:
             conn.close()
+

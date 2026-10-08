@@ -358,6 +358,101 @@
     .action-btn:hover { background: var(--fill-secondary); }
     .action-btn.primary { background: var(--amber); color: #000; border: none; }
     .action-btn.primary:hover { background: var(--amber-bright); }
+    .action-btn.danger { color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); }
+    .action-btn.danger:hover { background: rgba(255, 107, 107, 0.15); }
+    .action-btn.danger-solid { background: #e03131; color: #fff; border: none; }
+    .action-btn.danger-solid:hover:not(:disabled) { background: #c92a2a; }
+    .action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* Selection Bar & Badges */
+    .selection-bar {
+      position: sticky;
+      top: 0;
+      z-index: 80;
+      background: rgba(20, 20, 22, 0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--amber-border);
+      border-radius: var(--r-md);
+      padding: 10px 16px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+      animation: slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes slideDown {
+      from { transform: translateY(-10px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .selection-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .selection-count {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--amber-bright);
+    }
+
+    .selection-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .ep-card.selection-mode {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .ep-card.selected {
+      border-color: var(--amber) !important;
+      background: rgba(212, 136, 58, 0.12) !important;
+      box-shadow: 0 0 0 1px var(--amber);
+    }
+
+    .ep-select-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 10;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border: 2px solid rgba(255, 255, 255, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .ep-select-badge.checked {
+      background: var(--amber);
+      border-color: var(--amber);
+    }
+
+    .ep-select-badge svg {
+      width: 13px;
+      height: 13px;
+      stroke: #000;
+      display: none;
+    }
+
+    .ep-select-badge.checked svg {
+      display: block;
+    }
 
     /* Episode grid */
     .episode-grid {
@@ -793,6 +888,30 @@
             <div class="section-title">In Your Feed</div>
             <div class="section-desc">Active episodes available for streaming and downloaded to Overcast.</div>
           </div>
+          % if ready_episodes:
+          <div class="btn-group">
+            <button class="action-btn" id="btnToggleSelect" onclick="toggleSelectMode()">
+              <span id="btnToggleSelectIcon">☑️</span> <span id="btnToggleSelectText">Select Multiple</span>
+            </button>
+            <button class="action-btn danger" id="btnClearFeed" onclick="openClearFeedModal()">
+              🗑 Clear Feed
+            </button>
+          </div>
+          % end
+        </div>
+
+        <div class="selection-bar" id="selectionBar" style="display: none;">
+          <div class="selection-info">
+            <span class="selection-count" id="selectionCount">0 selected</span>
+          </div>
+          <div class="selection-actions">
+            <button class="action-btn" onclick="selectAllEpisodes(true)">Select All</button>
+            <button class="action-btn" onclick="selectAllEpisodes(false)">Deselect All</button>
+            <button class="action-btn danger-solid" id="btnDeleteSelected" onclick="deleteSelectedBatch()" disabled>
+              🗑 Delete Selected (<span id="deleteSelectedCount">0</span>)
+            </button>
+            <button class="action-btn" onclick="toggleSelectMode(false)">Done</button>
+          </div>
         </div>
 
         % if not ready_episodes:
@@ -804,7 +923,12 @@
         % else:
         <div class="episode-grid">
           % for ep in ready_episodes:
-          <div class="ep-card" id="card-ready-{{ ep['id'] }}">
+          <div class="ep-card" id="card-ready-{{ ep['id'] }}" data-id="{{ ep['id'] }}" onclick="handleCardClick('{{ ep['id'] }}', event)">
+            <div class="ep-select-badge" id="check-badge-{{ ep['id'] }}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
             <div class="ep-thumb">
               <img src="{{ ep.get('thumbnail_url') or '' }}" alt="" loading="lazy">
               % if ep.get('matched_keyword'):
@@ -822,7 +946,7 @@
                 </audio>
               </div>
               <div class="ep-actions" style="margin-top: 10px;">
-                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('{{ ep['id'] }}')">🗑 Remove from Feed</button>
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('{{ ep['id'] }}', event)">🗑 Remove from Feed</button>
               </div>
             </div>
           </div>
@@ -908,6 +1032,20 @@
         <button type="button" class="action-btn" onclick="closeTokenModal()">Cancel</button>
         <button type="button" class="action-btn primary" onclick="saveGhTokenFromModal()">Save Token</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Clear Feed Confirmation Modal -->
+<div class="modal-backdrop" id="modalClearFeed">
+  <div class="modal-box" style="max-width: 440px;">
+    <div class="modal-title" style="color: #ff6b6b;">🗑 Clear Entire Feed?</div>
+    <div class="modal-sub" style="line-height: 1.6; margin-bottom: 20px;">
+      This will remove <strong>all <span id="clearFeedCount">0</span> episodes</strong> from your podcast feed. They will not be re-downloaded automatically, but you can always grab any of them from the Backlog tab later.
+    </div>
+    <div class="modal-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
+      <button type="button" class="action-btn" onclick="closeClearFeedModal()">Cancel</button>
+      <button type="button" class="action-btn danger-solid" id="btnConfirmClearFeed" onclick="confirmClearFeed()">Clear All Episodes</button>
     </div>
   </div>
 </div>
@@ -1108,7 +1246,193 @@
     }
   }
 
-  async function deleteEpisode(videoId) {
+  // ─── Multi-Select & Batch Deletion ────────────────────
+  let isSelectMode = false;
+  const selectedEpisodes = new Set();
+
+  function toggleSelectMode(force) {
+    isSelectMode = force !== undefined ? force : !isSelectMode;
+    const bar = document.getElementById('selectionBar');
+    const btnText = document.getElementById('btnToggleSelectText');
+    const badges = document.querySelectorAll('#panelReady .ep-select-badge');
+    const cards = document.querySelectorAll('#panelReady .ep-card');
+
+    if (isSelectMode) {
+      if (bar) bar.style.display = 'flex';
+      if (btnText) btnText.textContent = 'Cancel Selection';
+      badges.forEach(b => b.style.display = 'flex');
+      cards.forEach(c => c.classList.add('selection-mode'));
+    } else {
+      if (bar) bar.style.display = 'none';
+      if (btnText) btnText.textContent = 'Select Multiple';
+      badges.forEach(b => b.style.display = 'none');
+      cards.forEach(c => {
+        c.classList.remove('selection-mode');
+        c.classList.remove('selected');
+      });
+      selectedEpisodes.clear();
+      updateSelectionUI();
+    }
+  }
+
+  function handleCardClick(videoId, event) {
+    if (!isSelectMode) return;
+    // Don't toggle selection if the user clicked inside audio player or on buttons
+    if (event.target.closest('audio') || event.target.closest('.ep-actions') || event.target.closest('a')) {
+      return;
+    }
+    toggleEpisodeSelection(videoId);
+  }
+
+  function toggleEpisodeSelection(videoId) {
+    const card = document.getElementById('card-ready-' + videoId);
+    const badge = document.getElementById('check-badge-' + videoId);
+    if (selectedEpisodes.has(videoId)) {
+      selectedEpisodes.delete(videoId);
+      if (card) card.classList.remove('selected');
+      if (badge) badge.classList.remove('checked');
+    } else {
+      selectedEpisodes.add(videoId);
+      if (card) card.classList.add('selected');
+      if (badge) badge.classList.add('checked');
+    }
+    updateSelectionUI();
+  }
+
+  function selectAllEpisodes(select) {
+    const cards = document.querySelectorAll('#panelReady .ep-card');
+    cards.forEach(card => {
+      const vid = card.getAttribute('data-id');
+      const badge = document.getElementById('check-badge-' + vid);
+      if (select) {
+        selectedEpisodes.add(vid);
+        card.classList.add('selected');
+        if (badge) badge.classList.add('checked');
+      } else {
+        selectedEpisodes.delete(vid);
+        card.classList.remove('selected');
+        if (badge) badge.classList.remove('checked');
+      }
+    });
+    updateSelectionUI();
+  }
+
+  function updateSelectionUI() {
+    const count = selectedEpisodes.size;
+    const countEl = document.getElementById('selectionCount');
+    const deleteCountEl = document.getElementById('deleteSelectedCount');
+    const btnDelete = document.getElementById('btnDeleteSelected');
+
+    if (countEl) countEl.textContent = `${count} selected`;
+    if (deleteCountEl) deleteCountEl.textContent = count;
+    if (btnDelete) btnDelete.disabled = (count === 0);
+  }
+
+  async function deleteSelectedBatch() {
+    const ids = Array.from(selectedEpisodes);
+    if (!ids.length) return;
+    if (!confirm(`Are you sure you want to remove ${ids.length} selected episode(s) from your podcast feed?`)) return;
+
+    // Dim the selected cards
+    ids.forEach(id => {
+      const card = document.getElementById('card-ready-' + id);
+      if (card) { card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
+    });
+
+    if (isCloud) {
+      const ok = await dispatchCloudAction(
+        { action: 'delete_batch', video_id: ids.join(',') },
+        `[Delete]: ${ids.join(', ')}`
+      );
+      if (ok) {
+        toggleSelectMode(false);
+      } else {
+        ids.forEach(id => {
+          const card = document.getElementById('card-ready-' + id);
+          if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+        });
+      }
+      return;
+    }
+
+    try {
+      showToast(`Deleting ${ids.length} episode(s)...`);
+      const res = await fetch('/api/episode/delete_batch', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ video_ids: ids })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast(`Removed ${ids.length} episode(s) from feed`);
+        ids.forEach(id => {
+          const card = document.getElementById('card-ready-' + id);
+          if (card) card.remove();
+        });
+        toggleSelectMode(false);
+        setTimeout(() => location.reload(), 700);
+      } else {
+        showToast(data.error || 'Failed to remove episodes');
+        ids.forEach(id => {
+          const card = document.getElementById('card-ready-' + id);
+          if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+        });
+      }
+    } catch (e) {
+      showToast('Error removing episodes');
+      ids.forEach(id => {
+        const card = document.getElementById('card-ready-' + id);
+        if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+      });
+    }
+  }
+
+  function openClearFeedModal() {
+    const count = document.querySelectorAll('#panelReady .ep-card').length;
+    const el = document.getElementById('clearFeedCount');
+    if (el) el.textContent = count;
+    document.getElementById('modalClearFeed').classList.add('active');
+  }
+
+  function closeClearFeedModal() {
+    document.getElementById('modalClearFeed').classList.remove('active');
+  }
+
+  async function confirmClearFeed() {
+    closeClearFeedModal();
+    const cards = document.querySelectorAll('#panelReady .ep-card');
+    cards.forEach(c => { c.style.opacity = '0.4'; c.style.pointerEvents = 'none'; });
+
+    if (isCloud) {
+      const ok = await dispatchCloudAction({ action: 'clear_feed', video_id: 'all' }, '[ClearFeed]');
+      if (!ok) {
+        cards.forEach(c => { c.style.opacity = ''; c.style.pointerEvents = ''; });
+      }
+      return;
+    }
+
+    try {
+      showToast('Clearing podcast feed...');
+      const res = await fetch('/api/episode/clear_all', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('All episodes removed from feed');
+        setTimeout(() => location.reload(), 700);
+      } else {
+        showToast(data.error || 'Failed to clear feed');
+        cards.forEach(c => { c.style.opacity = ''; c.style.pointerEvents = ''; });
+      }
+    } catch (e) {
+      showToast('Error clearing feed');
+      cards.forEach(c => { c.style.opacity = ''; c.style.pointerEvents = ''; });
+    }
+  }
+
+  async function deleteEpisode(videoId, event) {
+    if (event) event.stopPropagation();
     if (!confirm("Are you sure you want to remove this episode from your podcast feed?")) return;
 
     const card = document.getElementById('card-ready-' + videoId);

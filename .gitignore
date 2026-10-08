@@ -1,6 +1,5 @@
 # TowerCast — do NOT commit downloaded audio or the database
-data/audio/
-data/towercast.db
+data/
 gh-pages-output/
 bin/
 

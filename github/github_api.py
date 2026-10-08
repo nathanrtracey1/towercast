@@ -70,6 +70,29 @@ class GitHubAPI:
     def list_releases(self, per_page: int = 100) -> List[Dict]:
         return self._request("GET", f"/repos/{self.repo}/releases?per_page={per_page}")
 
+    def list_all_releases(self) -> List[Dict]:
+        """Fetches all releases across all pages."""
+        all_releases = []
+        page = 1
+        while True:
+            releases = self._request("GET", f"/repos/{self.repo}/releases?per_page=100&page={page}")
+            if not releases or not isinstance(releases, list):
+                break
+            all_releases.extend(releases)
+            if len(releases) < 100:
+                break
+            page += 1
+        return all_releases
+
+    def update_release(self, release_id: int, body: Optional[str] = None, name: Optional[str] = None) -> Dict:
+        data = {}
+        if body is not None:
+            data["body"] = body
+        if name is not None:
+            data["name"] = name
+        return self._request("PATCH", f"/repos/{self.repo}/releases/{release_id}", data=data)
+
+
     def get_release_by_tag(self, tag: str) -> Optional[Dict]:
         try:
             return self._request("GET", f"/repos/{self.repo}/releases/tags/{tag}")

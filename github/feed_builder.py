@@ -40,6 +40,7 @@ logging.basicConfig(
 logger = logging.getLogger("TowerCast-CI")
 
 RELEASE_TAG_PREFIX = "ep-"
+HISTORY_RELEASE_TAG = "towercast-history"
 CONFIG_PATH = ROOT / "config.json"
 
 
@@ -61,6 +62,36 @@ def video_id_from_tag(tag: str) -> Optional[str]:
     if tag.startswith(RELEASE_TAG_PREFIX):
         return tag[len(RELEASE_TAG_PREFIX):]
     return None
+
+
+def load_dismissed_ids(api: GitHubAPI) -> set:
+    """Loads previously deleted or cleared video IDs from the towercast-history release."""
+    try:
+        rel = api.get_release_by_tag(HISTORY_RELEASE_TAG)
+        if not rel:
+            return set()
+        m = re.search(r"<!-- TOWERCAST_HISTORY\n(.*?)\n-->", rel.get("body", ""), re.DOTALL)
+        if not m:
+            return set()
+        data = json.loads(m.group(1))
+        return set(data.get("deleted_ids", []))
+    except Exception as e:
+        logger.warning(f"Could not load dismissed IDs: {e}")
+        return set()
+
+
+def save_dismissed_ids(api: GitHubAPI, dismissed_ids: set):
+    """Saves dismissed video IDs into the towercast-history release."""
+    try:
+        body = f"<!-- TOWERCAST_HISTORY\n{json.dumps({'deleted_ids': sorted(list(dismissed_ids))}, indent=2)}\n-->"
+        rel = api.get_release_by_tag(HISTORY_RELEASE_TAG)
+        if rel:
+            api.update_release(rel["id"], body=body, name="TowerCast Sync History")
+        else:
+            api.create_release(tag=HISTORY_RELEASE_TAG, name="TowerCast Sync History", body=body, draft=False, prerelease=True)
+        logger.info(f"💾 Saved {len(dismissed_ids)} dismissed IDs to history release.")
+    except Exception as e:
+        logger.error(f"Failed to save dismissed IDs: {e}")
 
 
 def build_release_body(meta: Dict[str, Any]) -> str:
@@ -92,13 +123,14 @@ def parse_release_body(body: str) -> Optional[Dict[str, Any]]:
 
 def get_existing_episode_ids(api: GitHubAPI) -> Dict[str, Dict]:
     """Returns {video_id: release_json} for all TowerCast releases with an audio asset."""
-    releases = api.list_releases(per_page=100)
+    releases = api.list_all_releases()
     result = {}
     for rel in releases:
         vid_id = video_id_from_tag(rel.get("tag_name", ""))
         if vid_id and rel.get("assets"):
             result[vid_id] = rel
     return result
+
 
 
 def episode_from_release(release: Dict) -> Optional[Dict[str, Any]]:
@@ -268,11 +300,17 @@ def handle_issue_event(api: GitHubAPI, config: Dict) -> Tuple[Optional[str], Opt
             vid = parse_youtube_url(raw_target) or raw_target
             return "queue", vid, issue_num
 
-        # Check for [Delete]: <video_id>
-        m_d = re.search(r"\[Delete\]:\s*([a-zA-Z0-9_-]+)", title, re.IGNORECASE)
+        # Check for [ClearFeed] or [DeleteAll]
+        if re.search(r"\[(?:ClearFeed|DeleteAll|Clear)\]", title, re.IGNORECASE):
+            return "clear_feed", "all", issue_num
+
+        # Check for [Delete]: <video_id> or [DeleteBatch]: <ids>
+        m_d = re.search(r"\[(?:Delete|DeleteBatch)\]:\s*([^\n\r]+)", title, re.IGNORECASE)
         if m_d:
-            vid = m_d.group(1)
-            return "delete", vid, issue_num
+            raw_target = m_d.group(1).strip()
+            if raw_target.lower() in ("all", "clear"):
+                return "clear_feed", "all", issue_num
+            return "delete_batch", raw_target, issue_num
 
         # Check for [Favorite]: <keyword>
         m_f = re.search(r"\[Favorite\]:\s*(.+)", title, re.IGNORECASE)
@@ -316,32 +354,69 @@ def main():
     issue_action, issue_arg, issue_num = handle_issue_event(api, config)
     if issue_action:
         action = issue_action
-        if action in ("queue", "add_url", "delete", "delete_episode"):
+        if action in ("queue", "add_url", "delete", "delete_episode", "delete_batch", "clear_feed"):
             target_video_id = issue_arg
         elif action in ("add_favorite", "favorite", "delete_favorite"):
             keyword = issue_arg
 
-    if target_video_id:
-        target_video_id = parse_youtube_url(target_video_id) or target_video_id
+    dismissed_ids = load_dismissed_ids(api)
+    logger.info(f"Loaded {len(dismissed_ids)} dismissed video IDs from history.")
 
-    # Handle episode deletion
-    if action in ("delete", "delete_episode") and target_video_id:
-        tag = tag_for(target_video_id)
-        logger.info(f"🗑 Deleting episode release: {tag}")
-        try:
-            api.delete_release_by_tag(tag)
-            logger.info(f"✅ Successfully deleted release {tag}")
-        except Exception as e:
-            logger.warning(f"Could not delete release {tag}: {e}")
+    # Handle clearing the entire feed
+    if action in ("clear_feed", "delete_all") or (action in ("delete", "delete_episode", "delete_batch") and target_video_id.lower() in ("all", "clear")):
+        logger.info("🗑 Clearing all episodes from podcast feed...")
+        all_releases = api.list_all_releases()
+        cleared_count = 0
+        for rel in all_releases:
+            tag = rel.get("tag_name", "")
+            vid_id = video_id_from_tag(tag)
+            if vid_id:
+                try:
+                    api.delete_release_by_tag(tag)
+                    dismissed_ids.add(vid_id)
+                    cleared_count += 1
+                except Exception as e:
+                    logger.warning(f"Could not delete release {tag}: {e}")
+        save_dismissed_ids(api, dismissed_ids)
+        logger.info(f"✅ Cleared {cleared_count} episodes from Releases and recorded to history.")
         if issue_num:
             try:
-                api.comment_issue(issue_num, f"Deleted episode `{target_video_id}` from TowerCast.")
+                api.comment_issue(issue_num, f"Cleared all {cleared_count} episodes from TowerCast feed.")
+                api.close_issue(issue_num)
+            except Exception as e:
+                logger.warning(f"Could not close issue #{issue_num}: {e}")
+
+    # Handle episode deletion (single or batch)
+    elif action in ("delete", "delete_episode", "delete_batch") and target_video_id:
+        raw_ids = [x.strip() for x in re.split(r"[\s,]+", target_video_id) if x.strip()]
+        deleted_count = 0
+        for raw_id in raw_ids:
+            vid = parse_youtube_url(raw_id) or raw_id
+            tag = tag_for(vid)
+            logger.info(f"🗑 Deleting episode release: {tag}")
+            try:
+                api.delete_release_by_tag(tag)
+                dismissed_ids.add(vid)
+                deleted_count += 1
+                logger.info(f"✅ Successfully deleted release {tag}")
+            except Exception as e:
+                logger.warning(f"Could not delete release {tag}: {e}")
+        save_dismissed_ids(api, dismissed_ids)
+        logger.info(f"💾 Added {deleted_count} video ID(s) to dismissed history.")
+        if issue_num:
+            try:
+                api.comment_issue(issue_num, f"Deleted {deleted_count} episode(s) from TowerCast.")
                 api.close_issue(issue_num)
             except Exception as e:
                 logger.warning(f"Could not close issue #{issue_num}: {e}")
 
     # Handle single video queueing
     if action == "queue" and target_video_id:
+        target_video_id = parse_youtube_url(target_video_id) or target_video_id
+        if target_video_id in dismissed_ids:
+            dismissed_ids.remove(target_video_id)
+            save_dismissed_ids(api, dismissed_ids)
+            logger.info(f"Un-dismissed {target_video_id} for queueing.")
         logger.info(f"⚡ Processing direct queue for video: {target_video_id}")
         video_url = f"https://www.youtube.com/watch?v={target_video_id}"
         classified = {
@@ -395,6 +470,11 @@ def main():
             if classified.get("is_scheduled_or_live") or classified["is_short"] or vid_id in existing:
                 continue
 
+            if vid_id in dismissed_ids:
+                # Previously deleted or cleared; do not auto-queue into feed
+                pending_entries.append(classified)
+                continue
+
             if classified["target_status"] == "queued":
                 # Auto-download new episodes or matched shows
                 result = download_and_upload(
@@ -421,8 +501,9 @@ def main():
 
     # ── Step 3: Collect all episodes from Releases for the feed ──────────
     logger.info("🔄 Rebuilding feed from all GitHub Releases...")
-    all_releases = api.list_releases(per_page=100)
+    all_releases = api.list_all_releases()
     all_episodes: List[Dict] = []
+
 
     for rel in all_releases:
         ep = episode_from_release(rel)

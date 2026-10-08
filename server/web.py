@@ -290,6 +290,77 @@ class WebServer:
 
             return {"ok": True, "message": f"Episode {video_id} deleted"}
 
+        @app.route("/api/episode/delete_batch", method="POST")
+        def api_episode_delete_batch():
+            data = request.json or {}
+            video_ids = data.get("video_ids") or []
+            if isinstance(video_ids, str):
+                video_ids = [v.strip() for v in video_ids.split(",") if v.strip()]
+            if not video_ids:
+                response.status = 400
+                return {"error": "Missing video_ids"}
+
+            # Mark skipped in local DB
+            self.db.skip_episodes_batch(video_ids)
+
+            # Clean up local media files
+            import shutil
+            for vid in video_ids:
+                ep_dir = os.path.join(self.media_dir, vid)
+                if os.path.exists(ep_dir):
+                    try:
+                        shutil.rmtree(ep_dir)
+                    except Exception as e:
+                        logger.warning(f"Could not remove local audio dir {ep_dir}: {e}")
+
+            # If GitHub is enabled, trigger batch deletion in cloud
+            if self.config.get("github", {}).get("enabled"):
+                def delete_batch_gh():
+                    repo = self.config.get("github", {}).get("repo")
+                    token = os.environ.get("GITHUB_TOKEN")
+                    if token and repo:
+                        try:
+                            from github.github_api import GitHubAPI
+                            api = GitHubAPI(token=token, repo=repo)
+                            for vid in video_ids:
+                                api.delete_release_by_tag(f"ep-{vid}")
+                        except Exception as e:
+                            logger.warning(f"GitHub API batch delete failed: {e}")
+                    try:
+                        subprocess.run(["gh", "workflow", "run", "towercast.yml", "-f", "action=delete_batch", "-f", f"video_id={','.join(video_ids)}", "--repo", repo], check=False)
+                    except Exception as e:
+                        logger.warning(f"Could not trigger cloud workflow run: {e}")
+                threading.Thread(target=delete_batch_gh, daemon=True).start()
+
+            return {"ok": True, "count": len(video_ids), "message": f"Deleted {len(video_ids)} episode(s)"}
+
+        @app.route("/api/episode/clear_all", method="POST")
+        def api_episode_clear_all():
+            count = self.db.clear_ready_episodes()
+
+            # Clean up local audio files
+            import shutil
+            if os.path.exists(self.media_dir):
+                for item in os.listdir(self.media_dir):
+                    p = os.path.join(self.media_dir, item)
+                    if os.path.isdir(p):
+                        try:
+                            shutil.rmtree(p)
+                        except Exception:
+                            pass
+
+            if self.config.get("github", {}).get("enabled"):
+                def clear_all_gh():
+                    repo = self.config.get("github", {}).get("repo")
+                    try:
+                        subprocess.run(["gh", "workflow", "run", "towercast.yml", "-f", "action=clear_feed", "-f", "video_id=all", "--repo", repo], check=False)
+                    except Exception as e:
+                        logger.warning(f"Could not trigger clear_feed cloud workflow: {e}")
+                threading.Thread(target=clear_all_gh, daemon=True).start()
+
+            return {"ok": True, "count": count, "message": "Cleared all episodes from feed"}
+
+
         @app.route("/api/sync", method="POST")
         def api_sync():
             data = request.json or {}

@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: 'Action (sync, queue, add_url, delete, add_favorite, delete_favorite)'
+        description: 'Action (sync, queue, add_url, delete, delete_batch, clear_feed, add_favorite, delete_favorite)'
         required: false
         default: 'sync'
       video_id:
