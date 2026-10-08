@@ -106,6 +106,8 @@ def build_release_body(meta: Dict[str, Any]) -> str:
         "chapters": meta.get("chapters", []),
         "matched_keyword": meta.get("matched_keyword"),
         "file_size": meta.get("file_size", 0),
+        "is_manual_request": meta.get("is_manual_request", False),
+        "added_at": meta.get("added_at") or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
     }
     return f"<!-- TOWERCAST_META\n{json.dumps(payload, indent=2)}\n-->"
 
@@ -151,6 +153,11 @@ def episode_from_release(release: Dict) -> Optional[Dict[str, Any]]:
     if not audio_url:
         return None
 
+    is_manual = meta.get("is_manual_request") or (meta.get("matched_keyword") in ("Manual Cloud Queue", "Manual Request", "Added via URL"))
+    # For manually requested older episodes, use the added_at date for the podcast feed
+    # so it pops up at the very top of Overcast rather than getting lost years in the past.
+    feed_published_at = meta.get("added_at") if (is_manual and meta.get("added_at")) else (meta.get("published_at") or release.get("published_at"))
+
     return {
         "id": meta.get("id") or video_id_from_tag(release.get("tag_name", "")),
         "title": meta.get("title") or release.get("name"),
@@ -158,12 +165,15 @@ def episode_from_release(release: Dict) -> Optional[Dict[str, Any]]:
         "audio_filename": f"{meta.get('id')}/{meta.get('id')}.m4a",
         "file_size": meta.get("file_size") or file_size,
         "duration": meta.get("duration"),
-        "published_at": meta.get("published_at") or release.get("published_at"),
+        "published_at": feed_published_at,
+        "original_published_at": meta.get("published_at"),
         "thumbnail_url": meta.get("thumbnail_url"),
         "description": meta.get("description", ""),
         "chapters_json": json.dumps(meta.get("chapters", [])),
         "matched_keyword": meta.get("matched_keyword"),
+        "is_manual_request": is_manual,
     }
+
 
 
 def download_and_upload(video_id: str, video_url: str, classified: Dict,
@@ -424,7 +434,9 @@ def main():
             "title": f"Episode {target_video_id}",
             "url": video_url,
             "thumbnail_url": f"https://i.ytimg.com/vi/{target_video_id}/hq720.jpg",
-            "matched_keyword": "Manual Cloud Queue"
+            "matched_keyword": "Manual Request",
+            "is_manual_request": True,
+            "added_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
         }
         res = download_and_upload(target_video_id, video_url, classified, api, config)
         if issue_num:
@@ -524,6 +536,10 @@ def main():
     if prune_episodes and config.get("auto_prune_old_episodes", True):
         logger.info(f"🧹 Auto-pruning {len(prune_episodes)} old episode(s) beyond feed retention limit ({max_eps})...")
         for ep in prune_episodes:
+            if ep.get("is_manual_request"):
+                # User specifically requested this older episode; protect it in the feed
+                keep_episodes.append(ep)
+                continue
             vid = ep["id"]
             tag = tag_for(vid)
             try:
