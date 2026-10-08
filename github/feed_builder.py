@@ -458,9 +458,9 @@ def main():
         _, entries = yt.fetch_channel_entries(limit=scan_limit)
         logger.info(f"Found {len(entries)} total entries across uploads and live streams.")
 
-        # First 15 entries are considered new uploads/streams for auto-grab;
-        # entries beyond that are categorized into the Backlog tab.
-        new_batch_threshold = 15
+        # All entries within current scan limit are eligible for auto-download
+        new_batch_threshold = scan_limit
+
 
         for idx, entry in enumerate(entries):
             is_backlog = not entry.get("is_recent", True) if "is_recent" in entry else (idx >= new_batch_threshold)
@@ -517,7 +517,24 @@ def main():
     )
 
     max_eps = config.get("max_episodes_in_feed", 50)
-    all_episodes = all_episodes[:max_eps]
+    keep_episodes = all_episodes[:max_eps]
+    prune_episodes = all_episodes[max_eps:]
+
+    # Automatic rolling retention: delete releases older than retention limit
+    if prune_episodes and config.get("auto_prune_old_episodes", True):
+        logger.info(f"🧹 Auto-pruning {len(prune_episodes)} old episode(s) beyond feed retention limit ({max_eps})...")
+        for ep in prune_episodes:
+            vid = ep["id"]
+            tag = tag_for(vid)
+            try:
+                api.delete_release_by_tag(tag)
+                dismissed_ids.add(vid)
+                logger.info(f"Deleted old release: {tag}")
+            except Exception as e:
+                logger.warning(f"Could not prune release {tag}: {e}")
+        save_dismissed_ids(api, dismissed_ids)
+
+    all_episodes = keep_episodes
 
     logger.info(f"📊 Total episodes in podcast feed: {len(all_episodes)} | Pending review: {len(pending_entries)}")
 

@@ -390,5 +390,35 @@ class TestTowerCast(unittest.TestCase):
         dur_padded = dl._get_exact_duration(test_audio)
         self.assertEqual(dur_padded, 5)
 
+    def test_auto_prune_episodes(self):
+        from github.feed_builder import tag_for
+
+        class MockAPI:
+            def __init__(self):
+                self.deleted = []
+            def delete_release_by_tag(self, tag):
+                self.deleted.append(tag)
+
+        mock_api = MockAPI()
+        dismissed = set()
+        all_episodes = [
+            {"id": f"ep_{i}", "title": f"Episode {i}"}
+            for i in range(10)
+        ]
+        max_eps = 5
+        keep = all_episodes[:max_eps]
+        prune = all_episodes[max_eps:]
+
+        for ep in prune:
+            vid = ep["id"]
+            mock_api.delete_release_by_tag(tag_for(vid))
+            dismissed.add(vid)
+
+        self.assertEqual(len(keep), 5)
+        self.assertEqual(len(prune), 5)
+        self.assertEqual(len(mock_api.deleted), 5)
+        self.assertIn("ep-ep_5", mock_api.deleted)
+        self.assertIn("ep_5", dismissed)
+
 if __name__ == "__main__":
     unittest.main()
