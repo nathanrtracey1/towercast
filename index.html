@@ -1,0 +1,2884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>TowerCast Studio</title>
+  <style>
+    /* ─── Design System ────────────────────────────────────────────── */
+    :root {
+      --bg-base:       #0a0a0c;
+      --bg-elevated:   #111116;
+      --bg-overlay:    #18181f;
+
+      --material-bg:      rgba(22, 22, 28, 0.75);
+      --material-border:  rgba(255, 255, 255, 0.08);
+
+      --sep:           rgba(255, 255, 255, 0.08);
+      --sep-subtle:    rgba(255, 255, 255, 0.04);
+
+      --amber:         #d4883a;
+      --amber-bright:  #e09545;
+      --amber-dim:     rgba(212, 136, 58, 0.16);
+      --amber-border:  rgba(212, 136, 58, 0.32);
+
+      --label:         rgba(255, 255, 255, 0.92);
+      --secondary:     rgba(255, 255, 255, 0.58);
+      --tertiary:      rgba(255, 255, 255, 0.36);
+
+      --fill-primary:  rgba(255, 255, 255, 0.07);
+      --fill-secondary:rgba(255, 255, 255, 0.11);
+      --fill-danger-dim: rgba(239, 68, 68, 0.16);
+      --fill-danger-fg: #f87171;
+
+      --fill-success-fg:#34d399;
+      --fill-warning-fg:#fbbf24;
+
+      --r-sm:  8px;
+      --r-md: 12px;
+      --r-lg: 16px;
+
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+      --font-mono: "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg-base);
+      color: var(--label);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      height: 100vh;
+    }
+
+    /* ─── Sidebar ───────────────────────────────────────────────────── */
+    .sidebar {
+      background: var(--bg-elevated);
+      border-right: 1px solid var(--sep);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .sidebar-header {
+      padding: 18px 16px 14px;
+      border-bottom: 1px solid var(--sep);
+    }
+
+    .wordmark {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .wordmark-icon {
+      width: 28px;
+      height: 28px;
+      background: var(--amber);
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+      color: #000;
+    }
+
+    .wordmark-text {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.021em;
+      color: var(--label);
+    }
+
+    .wordmark-sub {
+      font-size: 11px;
+      color: var(--tertiary);
+      margin-top: 1px;
+    }
+
+    .feed-pill {
+      margin: 12px 14px 6px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--sep);
+      border-radius: var(--r-md);
+      padding: 10px 12px;
+    }
+
+    .feed-pill-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--tertiary);
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .feed-pill-url {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--amber);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 8px;
+    }
+
+    .feed-pill-copy {
+      width: 100%;
+      background: var(--amber-dim);
+      border: 1px solid var(--amber-border);
+      border-radius: var(--r-sm);
+      color: var(--amber-bright);
+      font-family: var(--font);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .feed-pill-copy:hover { background: rgba(212, 136, 58, 0.28); }
+
+    .sidebar-nav {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 8px;
+    }
+
+    .nav-section-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--tertiary);
+      padding: 10px 8px 4px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 10px;
+      border-radius: var(--r-sm);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--secondary);
+      transition: background 0.1s, color 0.1s;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+    }
+
+    .nav-item:hover { background: var(--fill-primary); color: var(--label); }
+
+    .nav-item.active {
+      background: var(--amber-dim);
+      color: var(--amber-bright);
+      font-weight: 600;
+    }
+
+    .nav-item-icon {
+      font-size: 15px;
+      width: 18px;
+      text-align: center;
+    }
+
+    .nav-badge {
+      margin-left: auto;
+      background: var(--amber);
+      color: #000;
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 20px;
+      padding: 1px 6px;
+      min-width: 18px;
+      text-align: center;
+    }
+
+    .nav-badge.muted {
+      background: var(--fill-primary);
+      color: var(--secondary);
+    }
+
+    .sidebar-footer {
+      padding: 12px 14px 16px;
+      border-top: 1px solid var(--sep);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .sync-btn {
+      width: 100%;
+      background: var(--fill-primary);
+      border: 1px solid var(--sep);
+      border-radius: var(--r-sm);
+      color: var(--label);
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 7px 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.12s;
+    }
+
+    .sync-btn:hover { background: var(--fill-secondary); }
+    .sync-btn.accent { background: var(--amber-dim); border-color: var(--amber-border); color: var(--amber-bright); }
+
+    /* ─── Main Content ───────────────────────────────────────────────── */
+    .main {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--bg-base);
+    }
+
+    .stats-strip {
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--sep);
+      flex-wrap: wrap;
+    }
+
+    .stat-tile {
+      background: var(--material-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--material-border);
+      border-radius: var(--r-md);
+      padding: 10px 16px;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .stat-tile-value {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .stat-tile-label {
+      font-size: 12px;
+      color: var(--secondary);
+    }
+
+    .network-badge {
+      margin-left: auto;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--sep);
+      border-radius: var(--r-sm);
+      padding: 6px 12px;
+      font-size: 11px;
+      color: var(--secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .network-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--fill-success-fg);
+    }
+
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.021em;
+    }
+
+    .section-desc {
+      font-size: 13px;
+      color: var(--secondary);
+      margin-top: 4px;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .action-btn {
+      background: var(--fill-primary);
+      border: 1px solid var(--sep);
+      border-radius: var(--r-sm);
+      color: var(--label);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.12s;
+    }
+
+    .action-btn:hover { background: var(--fill-secondary); }
+    .action-btn.primary { background: var(--amber); color: #000; border: none; }
+    .action-btn.primary:hover { background: var(--amber-bright); }
+    .action-btn.danger { color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); }
+    .action-btn.danger:hover { background: rgba(255, 107, 107, 0.15); }
+    .action-btn.danger-solid { background: #e03131; color: #fff; border: none; }
+    .action-btn.danger-solid:hover:not(:disabled) { background: #c92a2a; }
+    .action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* Selection Bar & Badges */
+    .selection-bar {
+      position: sticky;
+      top: 0;
+      z-index: 80;
+      background: rgba(20, 20, 22, 0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--amber-border);
+      border-radius: var(--r-md);
+      padding: 10px 16px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+      animation: slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes slideDown {
+      from { transform: translateY(-10px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .selection-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .selection-count {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--amber-bright);
+    }
+
+    .selection-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .ep-card.selection-mode {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .ep-card.selected {
+      border-color: var(--amber) !important;
+      background: rgba(212, 136, 58, 0.12) !important;
+      box-shadow: 0 0 0 1px var(--amber);
+    }
+
+    .ep-select-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 10;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border: 2px solid rgba(255, 255, 255, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .ep-select-badge.checked {
+      background: var(--amber);
+      border-color: var(--amber);
+    }
+
+    .ep-select-badge svg {
+      width: 13px;
+      height: 13px;
+      stroke: #000;
+      display: none;
+    }
+
+    .ep-select-badge.checked svg {
+      display: block;
+    }
+
+    /* Episode grid */
+    .episode-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .ep-card {
+      background: var(--material-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--material-border);
+      border-radius: var(--r-md);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+
+    .ep-card:hover {
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+
+    .ep-thumb {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      overflow: hidden;
+    }
+
+    .ep-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .ep-duration {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      background: rgba(0, 0, 0, 0.75);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ep-ribbon {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: var(--amber);
+      color: #000;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.03em;
+    }
+
+    .ep-body {
+      padding: 12px 14px 14px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .ep-title {
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.35;
+      color: var(--label);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .ep-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: auto;
+    }
+
+    .ep-btn {
+      flex: 1;
+      border-radius: var(--r-sm);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 7px 10px;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.12s;
+    }
+
+    .ep-btn-add { background: var(--amber); color: #000; }
+    .ep-btn-add:hover { background: var(--amber-bright); }
+    .ep-btn-skip { background: var(--fill-primary); color: var(--secondary); flex: 0 0 auto; padding: 7px 12px; }
+    .ep-btn-skip:hover { background: var(--fill-secondary); color: var(--label); }
+
+    .ep-player { margin-top: 4px; }
+    .ep-player audio { width: 100%; height: 32px; border-radius: 6px; accent-color: var(--amber); }
+
+    /* Rules Table / Cards */
+    .rules-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 780px;
+    }
+
+    .rule-card {
+      background: var(--material-bg);
+      border: 1px solid var(--material-border);
+      border-radius: var(--r-md);
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .rule-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .rule-keyword {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--label);
+    }
+
+    .rule-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 20px;
+      background: var(--fill-primary);
+      color: var(--secondary);
+    }
+
+    .rule-badge.auto {
+      background: var(--amber-dim);
+      color: var(--amber-bright);
+      border: 1px solid var(--amber-border);
+    }
+
+    .rule-delete-btn {
+      background: none;
+      border: 1px solid var(--sep);
+      color: var(--fill-danger-fg);
+      font-size: 12px;
+      padding: 5px 10px;
+      border-radius: var(--r-sm);
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+
+    .rule-delete-btn:hover { background: var(--fill-danger-dim); border-color: rgba(239, 68, 68, 0.3); }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-backdrop.active { display: flex; }
+
+    .modal-box {
+      background: var(--bg-overlay);
+      border: 1px solid var(--sep);
+      border-radius: var(--r-lg);
+      padding: 24px;
+      width: 100%;
+      max-width: 440px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+    }
+
+    .modal-title {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .modal-sub {
+      font-size: 12px;
+      color: var(--secondary);
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--secondary);
+      margin-bottom: 6px;
+    }
+
+    .form-input, .form-select {
+      width: 100%;
+      background: rgba(0,0,0,0.5);
+      border: 1px solid var(--sep);
+      border-radius: var(--r-sm);
+      color: var(--label);
+      font-family: var(--font);
+      font-size: 14px;
+      padding: 8px 12px;
+      outline: none;
+    }
+
+    .form-input:focus, .form-select:focus { border-color: var(--amber); }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    /* Empty state */
+    .empty-state { text-align: center; padding: 60px 20px; }
+    .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
+    .empty-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+    .empty-body { font-size: 13px; color: var(--secondary); max-width: 400px; margin: 0 auto; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1c1c24;
+      border: 1px solid var(--amber-border);
+      color: var(--label);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 10px 18px;
+      border-radius: 100px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+      display: none;
+      z-index: 1001;
+      white-space: nowrap;
+    }
+    .toast.visible { display: block; }
+
+    /* Tab panels */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Responsive */
+    @media (max-width: 860px) {
+      .shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      .sidebar { max-height: 280px; border-right: none; border-bottom: 1px solid var(--sep); }
+      .stats-strip { padding: 10px 16px; }
+      .content { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- ─── Sidebar ─────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="wordmark">
+        <div class="wordmark-icon">🎲</div>
+        <div>
+          <div class="wordmark-text">TowerCast</div>
+          <div class="wordmark-sub">The Dice Tower · Private Studio</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feed / Remote Access -->
+    <div class="feed-pill">
+      <div class="feed-pill-label">
+        <span>Podcast Feed</span>
+        <span style="color: var(--amber); font-weight:700;">Overcast</span>
+      </div>
+      <div class="feed-pill-url" id="feedUrlText">https://nathanrtracey1.github.io/towercast/feed.xml</div>
+      <button class="feed-pill-copy" onclick="copyFeedUrl()">Copy for Overcast</button>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Library</div>
+
+      <button class="nav-item active" onclick="switchTab('ready', this)" id="navReady">
+        <span class="nav-item-icon">🎧</span>
+        In Your Feed
+        <span class="nav-badge muted">50</span>
+      </button>
+
+      <button class="nav-item" onclick="switchTab('pending', this)" id="navPending">
+        <span class="nav-item-icon">📚</span>
+        Backlog & Archives
+        <span class="nav-badge">21</span>
+      </button>
+
+      <button class="nav-item" onclick="openAddUrlModal()" style="color: var(--amber-bright); font-weight: 600;">
+        <span class="nav-item-icon">➕</span>
+        Add from YouTube URL
+      </button>
+
+
+      <div class="nav-section-label">Access Links</div>
+      <div class="nav-item" style="cursor: pointer; font-size: 11px; font-family: var(--font-mono);" onclick="copyText('', 'Home Wi-Fi link copied!')" title="Click to copy LAN URL">
+        <span class="nav-item-icon">📱</span>
+        Wi-Fi: 
+      </div>
+      <div class="nav-item" style="cursor: pointer; font-size: 11px;" onclick="promptForGhToken()" title="Configure 1-tap mobile actions while Mac is asleep">
+        <span class="nav-item-icon">🔑</span>
+        Mobile 1-Tap Setup
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="sync-btn" onclick="triggerSync(30)" id="btnSync">
+        <span id="syncIcon">↻</span>
+        Sync Channel Now
+      </button>
+      <button class="sync-btn accent" onclick="triggerSync(150)" id="btnBacklog">
+        <span>📚</span>
+        Scan Backlog (150 Episodes)
+      </button>
+    </div>
+  </aside>
+
+  <!-- ─── Main ───────────────────────────────────────── -->
+  <main class="main">
+    <div class="stats-strip">
+      <div class="stat-tile">
+        <div class="stat-tile-value" style="color: var(--fill-success-fg);">50</div>
+        <div class="stat-tile-label">Episodes in feed</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-tile-value" style="color: var(--amber);">21</div>
+        <div class="stat-tile-label">Older in backlog</div>
+      </div>
+
+      <div class="network-badge" style="cursor: pointer; background: var(--amber-dim); border-color: var(--amber-border); color: var(--amber-bright);" onclick="openAddUrlModal()" title="Add any video or stream by YouTube URL">
+        <span>➕</span>
+        <span style="font-weight: 600;">Add from URL</span>
+      </div>
+
+      <div class="network-badge" style="cursor: pointer;" onclick="openTokenModal()" title="Configure 1-tap mobile actions while Mac is asleep">
+        <span class="network-dot" id="tokenStatusDot" style="background: var(--tertiary);"></span>
+        <span id="tokenStatusText">Mobile 1-Tap Setup</span>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ── Backlog Tab ── -->
+      <div class="tab-panel" id="panelPending">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Backlog & Archives</div>
+            <div class="section-desc">All new videos are captured automatically. Browse historical episodes and live streams below to download on-demand.</div>
+          </div>
+          <div class="btn-group">
+            <button class="action-btn primary" onclick="openAddUrlModal()">➕ Add from URL</button>
+            <button class="action-btn" onclick="triggerSync(150)">📚 Scan Deep Backlog (150)</button>
+          </div>
+        </div>
+
+        <div class="episode-grid">
+          <div class="ep-card" id="card-Abh47bvstiM">
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/Abh47bvstiM/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLDADYBJ4iCBy8GcUPWDhISULY8QgQ" alt="" loading="lazy">
+              <span class="ep-duration">49:42</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Crowdsurfing - September 9, 2026</div>
+              <div class="ep-actions">
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('Abh47bvstiM')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('Abh47bvstiM')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-kPJEDS_HC3M">
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/kPJEDS_HC3M/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLDQbEc8eZjACyTztd5Lb4UL3QvUXQ" alt="" loading="lazy">
+              <span class="ep-duration">01:41:49</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Audience HOT Takes: Upgrades Steal Games&#039; Souls!</div>
+              <div class="ep-actions">
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('kPJEDS_HC3M')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('kPJEDS_HC3M')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ZxYeN2NUtEA">
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/ZxYeN2NUtEA/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLAlzXdiiw8uwFi9eHDngh7GLno2cw" alt="" loading="lazy">
+              <span class="ep-duration">19:19</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Dice Tower News - Sept. 10th, 2026</div>
+              <div class="ep-actions">
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('ZxYeN2NUtEA')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('ZxYeN2NUtEA')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-J_xaz1N6oiU">
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/J_xaz1N6oiU/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLDYV2XzJH_YMkboiZKKxOesQNrSkA" alt="" loading="lazy">
+              <span class="ep-duration">01:10:11</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Top 10 Games that Start with &quot;T&quot;</div>
+              <div class="ep-actions">
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('J_xaz1N6oiU')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('J_xaz1N6oiU')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-fcsYArrWe6E">
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/fcsYArrWe6E/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLCSnBZJD4ZjvXE5_0yGmlFgcxOiGQ" alt="" loading="lazy">
+              <span class="ep-duration">01:44:52</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Primacy Live Play</div>
+              <div class="ep-actions">
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('fcsYArrWe6E')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('fcsYArrWe6E')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-jzy7yWh-pPg">
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/jzy7yWh-pPg/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLBzI864pCBl1I9rdtQDjvWjBMlBCQ" alt="" loading="lazy">
+              <span class="ep-duration">01:00:13</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">What&#039;s APPening - Let&#039;s Play! Oink Games (Sept. 29, 2026)</div>
+              <div class="ep-actions">
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('jzy7yWh-pPg')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('jzy7yWh-pPg')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-CbZJ-YwZe34">
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/CbZJ-YwZe34/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLCu0tLa3WOnULbQg2LW173QQro9Bg" alt="" loading="lazy">
+              <span class="ep-duration">02:09:03</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Disco Heist: Laundry - We&#039;ll Play it Live</div>
+              <div class="ep-actions">
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('CbZJ-YwZe34')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('CbZJ-YwZe34')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-cBpbGCOrBsU">
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/cBpbGCOrBsU/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLBUReJqQ7BiKu9UoVAkC2ZHhBb1PQ" alt="" loading="lazy">
+              <span class="ep-duration">46:55</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Board Game Breakfast #552 - Fall is Falling</div>
+              <div class="ep-actions">
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('cBpbGCOrBsU')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('cBpbGCOrBsU')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-oYnS_mHWq6E">
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/oYnS_mHWq6E/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLAKLOMBhfvs-jrcxiBeX8bEBX9bbA" alt="" loading="lazy">
+              <span class="ep-duration">11:51</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">How to Play Sky Bloom</div>
+              <div class="ep-actions">
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('oYnS_mHWq6E')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('oYnS_mHWq6E')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-Cei6K31ness">
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/Cei6K31ness/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLDlVfiKS6O8FpPdeyV9XmrGa_1vaw" alt="" loading="lazy">
+              <span class="ep-duration">01:01:16</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Best Public Domain Games on BGG - Voting By YOU!</div>
+              <div class="ep-actions">
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('Cei6K31ness')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('Cei6K31ness')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-s4YgiB-im3E">
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/s4YgiB-im3E/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLCaE9theuSQmhZzE9xaSaLKP8FK7A" alt="" loading="lazy">
+              <span class="ep-duration">29:55</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Seven Short Game Reviews - with Tom Vasel</div>
+              <div class="ep-actions">
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('s4YgiB-im3E')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('s4YgiB-im3E')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-r5Duq_J61ZU">
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/r5Duq_J61ZU/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLBkyEp3UWkQiR9cTEonQhlDxXO4dw" alt="" loading="lazy">
+              <span class="ep-duration">13:53</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">A Pile of Mid Games: 18xx and More!</div>
+              <div class="ep-actions">
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('r5Duq_J61ZU')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('r5Duq_J61ZU')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-pa_YdXe3lOw">
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/pa_YdXe3lOw/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLBiOiO928aigWaUK6eiDI0fZEOpbA" alt="" loading="lazy">
+              <span class="ep-duration">26:19</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Dice Tower News - Oct. 1st, 2026</div>
+              <div class="ep-actions">
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('pa_YdXe3lOw')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('pa_YdXe3lOw')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-xouXGK-eUxY">
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/xouXGK-eUxY/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLAkQ_4Ixa-N6TMFkHOfLBenIZD8cw" alt="" loading="lazy">
+              <span class="ep-duration">01:27:44</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Crowdsurfing - September 30, 2026</div>
+              <div class="ep-actions">
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('xouXGK-eUxY')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('xouXGK-eUxY')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-AqhVAfMdTNU">
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/AqhVAfMdTNU/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLAsPd3PzDHsvLCDfOecPxjXELscfg" alt="" loading="lazy">
+              <span class="ep-duration">01:05:58</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Top 10 Games with Terrifying Themes</div>
+              <div class="ep-actions">
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('AqhVAfMdTNU')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('AqhVAfMdTNU')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-kh7DQKvxZMw">
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/kh7DQKvxZMw/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLACePouRx0XRAM_oAKysnODxx-yTg" alt="" loading="lazy">
+              <span class="ep-duration">01:09:06</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">What&#039;s APPening - Frostpunk</div>
+              <div class="ep-actions">
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('kh7DQKvxZMw')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('kh7DQKvxZMw')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-g3Inr5o10bY">
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/g3Inr5o10bY/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLC71DTU6nc5QZ6KC-BDELB63QPvGg" alt="" loading="lazy">
+              <span class="ep-duration">01:12:58</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Live Q&amp;A with Tom Vasel - October 5, 2026</div>
+              <div class="ep-actions">
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('g3Inr5o10bY')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('g3Inr5o10bY')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-JlJ2kUTK7QI">
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/JlJ2kUTK7QI/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLCN5ee5ZjF-DdWZafEiVbdg4CUJIA" alt="" loading="lazy">
+              <span class="ep-duration">19:49</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Container Review: Cargo Ship? No, Car Go Road</div>
+              <div class="ep-actions">
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('JlJ2kUTK7QI')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('JlJ2kUTK7QI')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-c7NHr6y1J88">
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/c7NHr6y1J88/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLARHHKvYpfFceFbaUIkUxFAt_IgBQ" alt="" loading="lazy">
+              <span class="ep-duration">01:37:09</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Tidal Blades 2: Wardian Sky Expansion Live Play</div>
+              <div class="ep-actions">
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('c7NHr6y1J88')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('c7NHr6y1J88')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-fgqlsyA-Rsg">
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/fgqlsyA-Rsg/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLDYDw0UQoN0iOD98LFX_-hPmQWIUA" alt="" loading="lazy">
+              <span class="ep-duration">05:03</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Dice Tower is Going to Alaska!</div>
+              <div class="ep-actions">
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('fgqlsyA-Rsg')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('fgqlsyA-Rsg')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-a7MF2Zqk9xs">
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/a7MF2Zqk9xs/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLChqQFW-Wk9nHgicokdVkXgXXjgFg" alt="" loading="lazy">
+              <span class="ep-duration">16:43</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Rocket Ranchers Review: In Space, No One Can Hear You Meow</div>
+              <div class="ep-actions">
+                <button class="ep-btn ep-btn-add" onclick="queueVideo('a7MF2Zqk9xs')">⬇️ Download to Feed</button>
+                <button class="ep-btn ep-btn-skip" onclick="skipVideo('a7MF2Zqk9xs')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Ready Tab ── -->
+      <div class="tab-panel active" id="panelReady">
+        <div class="section-header">
+          <div>
+            <div class="section-title">In Your Feed</div>
+            <div class="section-desc">Active episodes available for streaming and downloaded to Overcast.</div>
+          </div>
+          <div class="btn-group">
+            <button class="action-btn" id="btnToggleSelect" onclick="toggleSelectMode()">
+              <span id="btnToggleSelectIcon">☑️</span> <span id="btnToggleSelectText">Select Multiple</span>
+            </button>
+            <button class="action-btn danger" id="btnClearFeed" onclick="openClearFeedModal()">
+              🗑 Clear Feed
+            </button>
+          </div>
+        </div>
+
+        <div class="selection-bar" id="selectionBar" style="display: none;">
+          <div class="selection-info">
+            <span class="selection-count" id="selectionCount">0 selected</span>
+          </div>
+          <div class="selection-actions">
+            <button class="action-btn" onclick="selectAllEpisodes(true)">Select All</button>
+            <button class="action-btn" onclick="selectAllEpisodes(false)">Deselect All</button>
+            <button class="action-btn danger-solid" id="btnDeleteSelected" onclick="deleteSelectedBatch()" disabled>
+              🗑 Delete Selected (<span id="deleteSelectedCount">0</span>)
+            </button>
+            <button class="action-btn" onclick="toggleSelectMode(false)">Done</button>
+          </div>
+        </div>
+
+        <div class="episode-grid">
+          <div class="ep-card" id="card-ready-e5woKWoRhrM" data-id="e5woKWoRhrM" onclick="handleCardClick('e5woKWoRhrM', event)">
+            <div class="ep-select-badge" id="check-badge-e5woKWoRhrM">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/e5woKWoRhrM/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLAMADwzYEEa16ktsuzgtgDXypzmzQ" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">08:07</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Encyclopedia of Monsters Review: Haunted Britannica</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-e5woKWoRhrM/e5woKWoRhrM.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('e5woKWoRhrM', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-B8gYJmdUDNo" data-id="B8gYJmdUDNo" onclick="handleCardClick('B8gYJmdUDNo', event)">
+            <div class="ep-select-badge" id="check-badge-B8gYJmdUDNo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/B8gYJmdUDNo/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLDnuWJB-wy2wVgzf3-RJCw49H8_pQ" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">14:41</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">A Pile of Mid Games: Beasts of Balance, Gin Rummy and More!</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-B8gYJmdUDNo/B8gYJmdUDNo.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('B8gYJmdUDNo', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-fxOa0kSqXqU" data-id="fxOa0kSqXqU" onclick="handleCardClick('fxOa0kSqXqU', event)">
+            <div class="ep-select-badge" id="check-badge-fxOa0kSqXqU">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/fxOa0kSqXqU/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLDukX_gR5gyzHm4uWu-T6YGdNZcKw" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">21:25</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Carl Von Linné Review - Take it or Leaf it?</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-fxOa0kSqXqU/fxOa0kSqXqU.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('fxOa0kSqXqU', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-mlpcG7zuL8A" data-id="mlpcG7zuL8A" onclick="handleCardClick('mlpcG7zuL8A', event)">
+            <div class="ep-select-badge" id="check-badge-mlpcG7zuL8A">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/mlpcG7zuL8A/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLDVLcqcPngJ8rq0PZva612SGyF_lw" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">12:49</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Trail to the Temple Review: Tiles, Drones, Temples, Oh My!</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-mlpcG7zuL8A/mlpcG7zuL8A.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('mlpcG7zuL8A', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-Qpf-BfR9ixM" data-id="Qpf-BfR9ixM" onclick="handleCardClick('Qpf-BfR9ixM', event)">
+            <div class="ep-select-badge" id="check-badge-Qpf-BfR9ixM">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/Qpf-BfR9ixM/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLC2OIPiuHuzHRkBBJmLde3yp3ZaJw" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">30:05</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Eternal Sevens Review: The Magnificent Seven</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-Qpf-BfR9ixM/Qpf-BfR9ixM.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('Qpf-BfR9ixM', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-jp-pCm53xEQ" data-id="jp-pCm53xEQ" onclick="handleCardClick('jp-pCm53xEQ', event)">
+            <div class="ep-select-badge" id="check-badge-jp-pCm53xEQ">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/jp-pCm53xEQ/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLAXhQSHc4aqqgB2hxY6ARgZBkrJAg" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">24:57</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Six Reviews: One Good Game</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-jp-pCm53xEQ/jp-pCm53xEQ.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('jp-pCm53xEQ', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-ER6kpMYoI7Q" data-id="ER6kpMYoI7Q" onclick="handleCardClick('ER6kpMYoI7Q', event)">
+            <div class="ep-select-badge" id="check-badge-ER6kpMYoI7Q">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/ER6kpMYoI7Q/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLAqDdfZCbpimv7nnrKItwYb60ma_A" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">10:08</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Clash of Clans: The Epic Raid Review: Barbarians at the Gate</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-ER6kpMYoI7Q/ER6kpMYoI7Q.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('ER6kpMYoI7Q', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-Sil42dMZJ5w" data-id="Sil42dMZJ5w" onclick="handleCardClick('Sil42dMZJ5w', event)">
+            <div class="ep-select-badge" id="check-badge-Sil42dMZJ5w">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/Sil42dMZJ5w/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLDMHWfT32tJrOCR57WBQGLzoNGo1g&amp;usqp=CBQ" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">59:19</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Top 10 Games that Start with &quot;U&quot;</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-Sil42dMZJ5w/Sil42dMZJ5w.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('Sil42dMZJ5w', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-m47NF5dpdlc" data-id="m47NF5dpdlc" onclick="handleCardClick('m47NF5dpdlc', event)">
+            <div class="ep-select-badge" id="check-badge-m47NF5dpdlc">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/m47NF5dpdlc/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLDWOEqgGToxuHKsh5Yms73kSxER-g" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">06:01</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Pop Art Review: Winds of Warhol</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-m47NF5dpdlc/m47NF5dpdlc.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('m47NF5dpdlc', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-lmpIfuwatpw" data-id="lmpIfuwatpw" onclick="handleCardClick('lmpIfuwatpw', event)">
+            <div class="ep-select-badge" id="check-badge-lmpIfuwatpw">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/lmpIfuwatpw/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLCGrLdhuQiHRs-4jCZWd5ppg7-j1w" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">29:01</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Dice Tower News - Oct. 8th, 2026</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-lmpIfuwatpw/lmpIfuwatpw.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('lmpIfuwatpw', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-OObKyPEL7h0" data-id="OObKyPEL7h0" onclick="handleCardClick('OObKyPEL7h0', event)">
+            <div class="ep-select-badge" id="check-badge-OObKyPEL7h0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/OObKyPEL7h0/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLCW9My1nWeEUQwDrKetNxX4zVYhEg" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">01:04:31</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Crowdsurfing - October 7, 2026</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-OObKyPEL7h0/OObKyPEL7h0.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('OObKyPEL7h0', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-XztJYohBap0" data-id="XztJYohBap0" onclick="handleCardClick('XztJYohBap0', event)">
+            <div class="ep-select-badge" id="check-badge-XztJYohBap0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/XztJYohBap0/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLC8ileIBcDe_JO2J37ucmBm29nJ-g" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">06:18</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Look Back - 10-7-26</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-XztJYohBap0/XztJYohBap0.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('XztJYohBap0', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-sXLSU3fsWcc" data-id="sXLSU3fsWcc" onclick="handleCardClick('sXLSU3fsWcc', event)">
+            <div class="ep-select-badge" id="check-badge-sXLSU3fsWcc">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/sXLSU3fsWcc/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLDVD15CwIGimZ5z43kK9YyPuwEI4A" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">21:39</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Eldertide: A Thousand Lights Review: Spirit in the Sky</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-sXLSU3fsWcc/sXLSU3fsWcc.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('sXLSU3fsWcc', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-BH2ruCAl82I" data-id="BH2ruCAl82I" onclick="handleCardClick('BH2ruCAl82I', event)">
+            <div class="ep-select-badge" id="check-badge-BH2ruCAl82I">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/BH2ruCAl82I/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLANVs95OL46cC41Q0YGAbY6MBeKVg" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">01:39:27</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Call of Cthulhu RPG: Chapter One</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-BH2ruCAl82I/BH2ruCAl82I.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('BH2ruCAl82I', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-n_4KR4i3VCE" data-id="n_4KR4i3VCE" onclick="handleCardClick('n_4KR4i3VCE', event)">
+            <div class="ep-select-badge" id="check-badge-n_4KR4i3VCE">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/n_4KR4i3VCE/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLCx9Iow55leHyla9rvXJ1RaS5O6Rg" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">13:10</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Kanō Review: Paint Pulling Game</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-n_4KR4i3VCE/n_4KR4i3VCE.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('n_4KR4i3VCE', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-LHMoVIlvypA" data-id="LHMoVIlvypA" onclick="handleCardClick('LHMoVIlvypA', event)">
+            <div class="ep-select-badge" id="check-badge-LHMoVIlvypA">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/LHMoVIlvypA/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLCRE-d5EW6p0i8YEbS_u-sRa8hfVw" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">01:04:08</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Bride of Spooktacular Live Play</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-LHMoVIlvypA/LHMoVIlvypA.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('LHMoVIlvypA', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-DkUIfLRAq74" data-id="DkUIfLRAq74" onclick="handleCardClick('DkUIfLRAq74', event)">
+            <div class="ep-select-badge" id="check-badge-DkUIfLRAq74">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/DkUIfLRAq74/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLDtS656-UUYMWhTGCZsbmQBvZ4-hw" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">23:18</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Uncharted Passage: Remastered Review: Topsy Scurvy</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-DkUIfLRAq74/DkUIfLRAq74.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('DkUIfLRAq74', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-eO4ILhcanJs" data-id="eO4ILhcanJs" onclick="handleCardClick('eO4ILhcanJs', event)">
+            <div class="ep-select-badge" id="check-badge-eO4ILhcanJs">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/eO4ILhcanJs/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLDzga0c9Ey5kt_2Imz3S-sNHKNycA" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">15:41</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Week In Review - October 5, 2026</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-eO4ILhcanJs/eO4ILhcanJs.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('eO4ILhcanJs', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-7zDNMNHa1tQ" data-id="7zDNMNHa1tQ" onclick="handleCardClick('7zDNMNHa1tQ', event)">
+            <div class="ep-select-badge" id="check-badge-7zDNMNHa1tQ">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/7zDNMNHa1tQ/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLDrh3LUvE0LCnB9wQkfP8WccQlGng" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">11:03</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">The Secrets of Warden Keene Review: A Grave Mystery</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-7zDNMNHa1tQ/7zDNMNHa1tQ.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('7zDNMNHa1tQ', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-49nPnYi_LW4" data-id="49nPnYi_LW4" onclick="handleCardClick('49nPnYi_LW4', event)">
+            <div class="ep-select-badge" id="check-badge-49nPnYi_LW4">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/49nPnYi_LW4/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLA7C_1dwxUdw5OEnSUzw1VKHtig0A" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">24:24</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Legendary: DC Deck Building Game Review: Nth Time is the Charm</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-49nPnYi_LW4/49nPnYi_LW4.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('49nPnYi_LW4', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-IXDDMCYZ-Jo" data-id="IXDDMCYZ-Jo" onclick="handleCardClick('IXDDMCYZ-Jo', event)">
+            <div class="ep-select-badge" id="check-badge-IXDDMCYZ-Jo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/IXDDMCYZ-Jo/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLAelM_3Vg715icXZmpuLXci1UyrWw" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">10:31</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Greylune Review: 3 by 3 Adventure!</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-IXDDMCYZ-Jo/IXDDMCYZ-Jo.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('IXDDMCYZ-Jo', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-GulACCjiGCk" data-id="GulACCjiGCk" onclick="handleCardClick('GulACCjiGCk', event)">
+            <div class="ep-select-badge" id="check-badge-GulACCjiGCk">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/GulACCjiGCk/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLCV-pv1ZjhB5srQPc-mRdjEtV83qQ&amp;usqp=CBQ" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">15:35</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Brave &amp; Bold: Bag Building Combat Game Review: Gag Building</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-GulACCjiGCk/GulACCjiGCk.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('GulACCjiGCk', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-RXTzK1R9cw8" data-id="RXTzK1R9cw8" onclick="handleCardClick('RXTzK1R9cw8', event)">
+            <div class="ep-select-badge" id="check-badge-RXTzK1R9cw8">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/RXTzK1R9cw8/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLDuV-sEo4LvXFtJy2kBHvQ7fLqQ0w" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">12:58</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Coffe Rush Winter Review - Speedy Starbucks</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-RXTzK1R9cw8/RXTzK1R9cw8.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('RXTzK1R9cw8', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-QqI64wZdpV0" data-id="QqI64wZdpV0" onclick="handleCardClick('QqI64wZdpV0', event)">
+            <div class="ep-select-badge" id="check-badge-QqI64wZdpV0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/QqI64wZdpV0/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLBl74crv1WXb-N0j0azzrB2hychmw" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">17:58</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Dune Imperium Play System Review: The Spice... and Insert... Must Flow</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-QqI64wZdpV0/QqI64wZdpV0.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('QqI64wZdpV0', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-qbAz5KnebMQ" data-id="qbAz5KnebMQ" onclick="handleCardClick('qbAz5KnebMQ', event)">
+            <div class="ep-select-badge" id="check-badge-qbAz5KnebMQ">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/qbAz5KnebMQ/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLB61th2oA9ux66EybkMGIRrgXPV2Q" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">22:13</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Elementica Review: Running Mana</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-qbAz5KnebMQ/qbAz5KnebMQ.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('qbAz5KnebMQ', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-8dPWIOSvzGs" data-id="8dPWIOSvzGs" onclick="handleCardClick('8dPWIOSvzGs', event)">
+            <div class="ep-select-badge" id="check-badge-8dPWIOSvzGs">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/8dPWIOSvzGs/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLB6aVqr0XKXw6HFgHPlCbYlnP4d7Q" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">19:25</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Thunder Road: Ignition Review: Thunder Strikes Twice</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-8dPWIOSvzGs/8dPWIOSvzGs.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('8dPWIOSvzGs', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-NGROTb9mAxo" data-id="NGROTb9mAxo" onclick="handleCardClick('NGROTb9mAxo', event)">
+            <div class="ep-select-badge" id="check-badge-NGROTb9mAxo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/NGROTb9mAxo/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLBIpt-7YUjGNFrqoEYzN_xXoAoSFg" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">19:54</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Journeys Afar: The Ketsueki Review: The Sandiest of Sandboxes</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-NGROTb9mAxo/NGROTb9mAxo.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('NGROTb9mAxo', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-_ZmgWgB-Xs8" data-id="_ZmgWgB-Xs8" onclick="handleCardClick('_ZmgWgB-Xs8', event)">
+            <div class="ep-select-badge" id="check-badge-_ZmgWgB-Xs8">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/_ZmgWgB-Xs8/hq720.jpg?sqp=-oaymwEgCNAFEJQDSFXyq4qpAxIIARUAAIhCGAFwAcABBrgC9xg=&amp;rs=AOn4CLA9etft9yfs0gp1Zi8ToxTuBvXNZw" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">16:55</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Lorcana Review: A Look at Wilds Unknown and Attack of the Vine!</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-_ZmgWgB-Xs8/_ZmgWgB-Xs8.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('_ZmgWgB-Xs8', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-hY4Lk75uSXg" data-id="hY4Lk75uSXg" onclick="handleCardClick('hY4Lk75uSXg', event)">
+            <div class="ep-select-badge" id="check-badge-hY4Lk75uSXg">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/hY4Lk75uSXg/hq720.jpg?sqp=-oaymwEgCNAFEJQDSFXyq4qpAxIIARUAAIhCGAFwAcABBrgC9xg=&amp;rs=AOn4CLCd4JEdFdB4SpER2RpbRbvU3zKbjA" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">11:32</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Tea &amp; Rum Review: Gunfire is on the Menu</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-hY4Lk75uSXg/hY4Lk75uSXg.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('hY4Lk75uSXg', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-rsvL8IlkAV0" data-id="rsvL8IlkAV0" onclick="handleCardClick('rsvL8IlkAV0', event)">
+            <div class="ep-select-badge" id="check-badge-rsvL8IlkAV0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/rsvL8IlkAV0/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLC5HGKhXZVtgr2-24d9o8hdHX1Pzw" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">01:33:20</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Rainbow Blvd Live Play</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-rsvL8IlkAV0/rsvL8IlkAV0.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('rsvL8IlkAV0', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-sWNNbfw-Ut8" data-id="sWNNbfw-Ut8" onclick="handleCardClick('sWNNbfw-Ut8', event)">
+            <div class="ep-select-badge" id="check-badge-sWNNbfw-Ut8">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/sWNNbfw-Ut8/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLD1SdSIso1rO6BatkVSjQgBJNDv-A" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">07:47</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Look Back - 9-30-36</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-sWNNbfw-Ut8/sWNNbfw-Ut8.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('sWNNbfw-Ut8', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-KToxFFcjyRY" data-id="KToxFFcjyRY" onclick="handleCardClick('KToxFFcjyRY', event)">
+            <div class="ep-select-badge" id="check-badge-KToxFFcjyRY">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/KToxFFcjyRY/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLBvuUztjzhzDkJbrP_RcKgNPvgJGA" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">12:20</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Under the Leaves Review: Thank You Very Mulch</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-KToxFFcjyRY/KToxFFcjyRY.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('KToxFFcjyRY', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-vd2aecvQLTU" data-id="vd2aecvQLTU" onclick="handleCardClick('vd2aecvQLTU', event)">
+            <div class="ep-select-badge" id="check-badge-vd2aecvQLTU">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/vd2aecvQLTU/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLDqFpYGGW8fISq600QRA1typ2rxJg" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">05:31</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Tom&#039;s Boring Unboxing Video - Sept. 29, 2026</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-vd2aecvQLTU/vd2aecvQLTU.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('vd2aecvQLTU', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-6ynMWtLn33w" data-id="6ynMWtLn33w" onclick="handleCardClick('6ynMWtLn33w', event)">
+            <div class="ep-select-badge" id="check-badge-6ynMWtLn33w">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/6ynMWtLn33w/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLB_tZu754nrmDbtDGlAfBwR8mkKmw" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">19:33</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Marvel: Crisis Protocol Alliances - Night of the Goblin Review: How Do You Sprue</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-6ynMWtLn33w/6ynMWtLn33w.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('6ynMWtLn33w', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-vib0WZexNtw" data-id="vib0WZexNtw" onclick="handleCardClick('vib0WZexNtw', event)">
+            <div class="ep-select-badge" id="check-badge-vib0WZexNtw">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/vib0WZexNtw/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLCqVP-CnzioOTIMCvxDdotS961Bww" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">21:21</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Forbidden Legacy Review - It&#039;s Elemental Watson</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-vib0WZexNtw/vib0WZexNtw.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('vib0WZexNtw', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-29sPBT5xVJc" data-id="29sPBT5xVJc" onclick="handleCardClick('29sPBT5xVJc', event)">
+            <div class="ep-select-badge" id="check-badge-29sPBT5xVJc">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/29sPBT5xVJc/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLC7vJkvdLfdrtaT13Gb3IF1_Kf5eQ" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">21:29</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">DECKO Review: The Jokers Wild</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-29sPBT5xVJc/29sPBT5xVJc.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('29sPBT5xVJc', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-WsjXPhn21YY" data-id="WsjXPhn21YY" onclick="handleCardClick('WsjXPhn21YY', event)">
+            <div class="ep-select-badge" id="check-badge-WsjXPhn21YY">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/WsjXPhn21YY/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLBczhQhV1oMNfOP7zRgQAFTaWdLfw" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">13:59</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">How to play Soda Jerk</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-WsjXPhn21YY/WsjXPhn21YY.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('WsjXPhn21YY', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-LSKWeTgdtJI" data-id="LSKWeTgdtJI" onclick="handleCardClick('LSKWeTgdtJI', event)">
+            <div class="ep-select-badge" id="check-badge-LSKWeTgdtJI">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/LSKWeTgdtJI/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLAXB15cL_ioAnKad4HkIUyDQgyHwg" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">10:43</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Kingdomino: The Lost Treasures Review - The Lost Levels</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-LSKWeTgdtJI/LSKWeTgdtJI.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('LSKWeTgdtJI', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-BDTwvDsy01k" data-id="BDTwvDsy01k" onclick="handleCardClick('BDTwvDsy01k', event)">
+            <div class="ep-select-badge" id="check-badge-BDTwvDsy01k">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/BDTwvDsy01k/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLDeW9VV6j650VYcfOlFTizYjlqFrA" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">12:05</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Glimmerdeep Review: Ya Dig?</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-BDTwvDsy01k/BDTwvDsy01k.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('BDTwvDsy01k', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-7JRXhrtZMh8" data-id="7JRXhrtZMh8" onclick="handleCardClick('7JRXhrtZMh8', event)">
+            <div class="ep-select-badge" id="check-badge-7JRXhrtZMh8">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/7JRXhrtZMh8/hq720.jpg" alt="" loading="lazy">
+              <span class="ep-ribbon">Manual Cloud Queue</span>
+              <span class="ep-duration">01:06:52</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Top 10 Pocket games</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-7JRXhrtZMh8/7JRXhrtZMh8.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('7JRXhrtZMh8', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-R-6LuEv5nLE" data-id="R-6LuEv5nLE" onclick="handleCardClick('R-6LuEv5nLE', event)">
+            <div class="ep-select-badge" id="check-badge-R-6LuEv5nLE">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/R-6LuEv5nLE/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLCPSCOhIqLFtpArj8__CLyrkXEOMA" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">17:52</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Minikin City Review: Living in a Tuna Can</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-R-6LuEv5nLE/R-6LuEv5nLE.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('R-6LuEv5nLE', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-ASW6751NfQA" data-id="ASW6751NfQA" onclick="handleCardClick('ASW6751NfQA', event)">
+            <div class="ep-select-badge" id="check-badge-ASW6751NfQA">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/ASW6751NfQA/hq720.jpg" alt="" loading="lazy">
+              <span class="ep-ribbon">Manual Cloud Queue</span>
+              <span class="ep-duration">46:07</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Dice Tower News - Sept. 24th, 2026</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-ASW6751NfQA/ASW6751NfQA.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('ASW6751NfQA', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-1CzC9NfDCWA" data-id="1CzC9NfDCWA" onclick="handleCardClick('1CzC9NfDCWA', event)">
+            <div class="ep-select-badge" id="check-badge-1CzC9NfDCWA">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/1CzC9NfDCWA/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLAx6r35bqxfwX8QbVQCt7xp5CTsyQ" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">01:47:59</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Best Party Games on BGG - Voting By YOU!</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-1CzC9NfDCWA/1CzC9NfDCWA.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('1CzC9NfDCWA', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-ulYU3sHBE-g" data-id="ulYU3sHBE-g" onclick="handleCardClick('ulYU3sHBE-g', event)">
+            <div class="ep-select-badge" id="check-badge-ulYU3sHBE-g">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/ulYU3sHBE-g/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLAhmjV0NA_0AtanfbhdttMCbaHmZg" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">01:16:27</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Crowdsurfing - September 23, 2026</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-ulYU3sHBE-g/ulYU3sHBE-g.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('ulYU3sHBE-g', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-txdTXq3xJ3s" data-id="txdTXq3xJ3s" onclick="handleCardClick('txdTXq3xJ3s', event)">
+            <div class="ep-select-badge" id="check-badge-txdTXq3xJ3s">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="/Users/nathantracey/.gemini/antigravity/scratch/TowerCast/data/audio/txdTXq3xJ3s/txdTXq3xJ3s.jpg" alt="" loading="lazy">
+              <span class="ep-ribbon">Live Q&amp;A</span>
+              <span class="ep-duration">01:15:53</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Live Q&amp;A with Tom Vasel - September 22, 2026</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-txdTXq3xJ3s/txdTXq3xJ3s.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('txdTXq3xJ3s', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-psi8xTupd3A" data-id="psi8xTupd3A" onclick="handleCardClick('psi8xTupd3A', event)">
+            <div class="ep-select-badge" id="check-badge-psi8xTupd3A">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/psi8xTupd3A/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBqLzl_8DDgjsjMvVBhjg6gQg4KgB&amp;rs=AOn4CLDhaYxMBxGt-f6dhbcI4G6iFhyzEA&amp;usqp=CBU" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">09:55</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Monopoly Over Three Generations - with Tom Vasel</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-psi8xTupd3A/psi8xTupd3A.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('psi8xTupd3A', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-neIexjBjsw0" data-id="neIexjBjsw0" onclick="handleCardClick('neIexjBjsw0', event)">
+            <div class="ep-select-badge" id="check-badge-neIexjBjsw0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/neIexjBjsw0/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLCxfYYQ_ia_cn86w0sCaLQ_XUS2eA" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">55:07</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">What&#039;s APPening - Marvel Snap (in 2026!)</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-neIexjBjsw0/neIexjBjsw0.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('neIexjBjsw0', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-gBufUY5kXJM" data-id="gBufUY5kXJM" onclick="handleCardClick('gBufUY5kXJM', event)">
+            <div class="ep-select-badge" id="check-badge-gBufUY5kXJM">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/gBufUY5kXJM/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBqLzl_8DDgjekovVBhjg6gQg4KgB&amp;rs=AOn4CLDqtSuBIWsWrvL8Gj7sCi-kOoTGIw&amp;usqp=CBU" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">07:40</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Look Back - 9/23/26</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-gBufUY5kXJM/gBufUY5kXJM.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('gBufUY5kXJM', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-v6ffjXZHIMs" data-id="v6ffjXZHIMs" onclick="handleCardClick('v6ffjXZHIMs', event)">
+            <div class="ep-select-badge" id="check-badge-v6ffjXZHIMs">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/v6ffjXZHIMs/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLCEse9w9Mr5r4zw0dKvHFikwgd1WQ" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">15:26</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Heroscape: Secrets of the Citadel Review</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-v6ffjXZHIMs/v6ffjXZHIMs.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('v6ffjXZHIMs', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+          <div class="ep-card" id="card-ready-Ie4Kg0EYw2U" data-id="Ie4Kg0EYw2U" onclick="handleCardClick('Ie4Kg0EYw2U', event)">
+            <div class="ep-select-badge" id="check-badge-Ie4Kg0EYw2U">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="ep-thumb">
+              <img src="https://i.ytimg.com/vi/Ie4Kg0EYw2U/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&amp;rs=AOn4CLA9kKa72VGIrYbxjXKBoNITbDwCOA" alt="" loading="lazy">
+              <span class="ep-ribbon">New Episode</span>
+              <span class="ep-duration">11:47</span>
+            </div>
+            <div class="ep-body">
+              <div class="ep-title">Tom&#039;s Boring Unboxing Video - Sept. 22, 2026</div>
+              <div class="ep-player">
+                <audio controls preload="none">
+                  <source src="https://github.com/nathanrtracey1/towercast/releases/download/ep-Ie4Kg0EYw2U/Ie4Kg0EYw2U.m4a" type="audio/mp4">
+                </audio>
+              </div>
+              <div class="ep-actions" style="margin-top: 10px;">
+                <button class="ep-btn ep-btn-skip" style="color: #ff6b6b; border-color: rgba(255, 107, 107, 0.35); width: 100%; justify-content: center; font-weight: 600;" onclick="deleteEpisode('Ie4Kg0EYw2U', event)">🗑 Remove from Feed</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Queued Tab ── -->
+
+    </div><!-- /content -->
+  </main>
+</div>
+
+<!-- Add From URL Modal -->
+<div class="modal-backdrop" id="modalAddUrl">
+  <div class="modal-box">
+    <div class="modal-title">➕ Add from YouTube URL</div>
+    <div class="modal-sub">Paste any YouTube video or livestream link to download the audio and add it to your podcast feed.</div>
+
+    <form onsubmit="submitAddUrl(event)">
+      <div class="form-group">
+        <label class="form-label" for="inputVideoUrl">YouTube Video or Stream URL</label>
+        <input class="form-input" id="inputVideoUrl" placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..." required autofocus>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="action-btn" onclick="closeAddUrlModal()">Cancel</button>
+        <button type="submit" class="action-btn primary" id="btnAddUrlSubmit">⬇️ Download to Feed</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Mobile Token Setup Modal -->
+<div class="modal-backdrop" id="modalTokenSetup">
+  <div class="modal-box" style="max-width: 500px;">
+    <div class="modal-title">🔑 Mobile 1-Tap Cloud Setup</div>
+    <div class="modal-sub" style="line-height: 1.5; margin-bottom: 14px;">
+      Configure 1-tap mobile queueing and deletions from anywhere, even when your Mac is asleep or powered off.
+    </div>
+
+    <div style="background: var(--bg-card); border: 1px solid var(--sep); border-radius: var(--r-sm); padding: 12px 14px; margin-bottom: 16px; font-size: 12px; line-height: 1.6; color: var(--secondary);">
+      <strong style="color: var(--label);">Quick 1-Minute Setup:</strong>
+      <ol style="margin: 8px 0 0 18px; padding: 0;">
+        <li>Open <a href="https://github.com/settings/tokens?type=beta" target="_blank" style="color: var(--amber-bright); text-decoration: underline;">GitHub Fine-Grained Personal Access Tokens</a>.</li>
+        <li>Click <strong>Generate new token</strong>.</li>
+        <li>Token name: <code>TowerCast Phone</code>.</li>
+        <li>Repository access: Select <strong>Only select repositories</strong> &rarr; <code>nathanrtracey1/towercast</code>.</li>
+        <li>Permissions &rarr; <strong>Repository permissions</strong> &rarr; <strong>Actions</strong>: select <strong>Access: Read and write</strong>.</li>
+        <li>Click <strong>Generate token</strong> at bottom, copy it, and paste it below.</li>
+      </ol>
+      <div style="margin-top: 10px; font-size: 11px; color: var(--tertiary);">
+        🔒 This token is stored exclusively in this browser's local memory (localStorage) and never uploaded to any remote server.
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="tokenInput">GitHub Personal Access Token</label>
+      <input class="form-input" id="tokenInput" type="password" placeholder="github_pat_..." autocomplete="off">
+    </div>
+
+    <div class="modal-actions" style="justify-content: space-between;">
+      <button type="button" class="action-btn" style="color: #ff6b6b; border-color: rgba(255,107,107,0.3);" onclick="clearGhToken()">Clear Token</button>
+      <div style="display: flex; gap: 8px;">
+        <button type="button" class="action-btn" onclick="closeTokenModal()">Cancel</button>
+        <button type="button" class="action-btn primary" onclick="saveGhTokenFromModal()">Save Token</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Clear Feed Confirmation Modal -->
+<div class="modal-backdrop" id="modalClearFeed">
+  <div class="modal-box" style="max-width: 440px;">
+    <div class="modal-title" style="color: #ff6b6b;">🗑 Clear Entire Feed?</div>
+    <div class="modal-sub" style="line-height: 1.6; margin-bottom: 20px;">
+      This will remove <strong>all <span id="clearFeedCount">0</span> episodes</strong> from your podcast feed. They will not be re-downloaded automatically, but you can always grab any of them from the Backlog tab later.
+    </div>
+    <div class="modal-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
+      <button type="button" class="action-btn" onclick="closeClearFeedModal()">Cancel</button>
+      <button type="button" class="action-btn danger-solid" id="btnConfirmClearFeed" onclick="confirmClearFeed()">Clear All Episodes</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ─── Tab routing ───────────────────────────────────────
+  const panels = {
+    ready: 'panelReady',
+    pending: 'panelPending',
+    queued: 'panelQueued'
+  };
+
+  function switchTab(name, btn) {
+    Object.values(panels).forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('active');
+    });
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+
+    const panel = document.getElementById(panels[name]);
+    if (panel) panel.classList.add('active');
+    if (btn) btn.classList.add('active');
+  }
+
+  // ─── Toast ─────────────────────────────────────────────
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('visible');
+    setTimeout(() => t.classList.remove('visible'), 2800);
+  }
+
+  function copyText(text, successMsg) {
+    navigator.clipboard.writeText(text).then(() => showToast(successMsg));
+  }
+
+  function copyFeedUrl() {
+    const url = document.getElementById('feedUrlText').textContent.trim();
+    copyText(url, 'Feed URL copied — paste into Overcast');
+  }
+
+  const isCloud = window.location.hostname.includes('github.io');
+  const GH_REPO = 'nathanrtracey1/towercast';
+
+  function getGhToken() {
+    return localStorage.getItem('towercast_gh_token') || '';
+  }
+
+  function updateTokenBadge() {
+    const token = getGhToken();
+    const dot = document.getElementById('tokenStatusDot');
+    const txt = document.getElementById('tokenStatusText');
+    if (dot && txt) {
+      if (token) {
+        dot.style.background = 'var(--fill-success-fg)';
+        txt.textContent = '1-Tap Cloud Ready';
+      } else {
+        dot.style.background = 'var(--tertiary)';
+        txt.textContent = 'Mobile 1-Tap Setup';
+      }
+    }
+  }
+
+  function setGhToken(token) {
+    if (token) {
+      localStorage.setItem('towercast_gh_token', token.trim());
+      showToast('GitHub token saved for 1-tap mobile actions!');
+    } else {
+      localStorage.removeItem('towercast_gh_token');
+      showToast('GitHub token cleared');
+    }
+    updateTokenBadge();
+  }
+
+  function openTokenModal() {
+    const input = document.getElementById('tokenInput');
+    if (input) input.value = getGhToken();
+    document.getElementById('modalTokenSetup').classList.add('active');
+  }
+
+  function closeTokenModal() {
+    document.getElementById('modalTokenSetup').classList.remove('active');
+  }
+
+  function saveGhTokenFromModal() {
+    const val = document.getElementById('tokenInput').value.trim();
+    if (val) {
+      setGhToken(val);
+    } else {
+      clearGhToken();
+    }
+    closeTokenModal();
+  }
+
+  function clearGhToken() {
+    setGhToken('');
+    const input = document.getElementById('tokenInput');
+    if (input) input.value = '';
+    closeTokenModal();
+  }
+
+  function promptForGhToken() {
+    openTokenModal();
+  }
+
+  // ─── Add from URL ──────────────────────────────────────
+  function openAddUrlModal() {
+    document.getElementById('modalAddUrl').classList.add('active');
+    const inp = document.getElementById('inputVideoUrl');
+    if (inp) { inp.value = ''; inp.focus(); }
+  }
+
+  function closeAddUrlModal() {
+    document.getElementById('modalAddUrl').classList.remove('active');
+  }
+
+  function parseYoutubeId(urlOrId) {
+    if (!urlOrId) return '';
+    const raw = urlOrId.trim();
+    if (/^[a-zA-Z0-9_-]{11}$/.test(raw)) return raw;
+    const m = raw.match(/(?:v=|\/v\/|youtu\.be\/|\/embed\/|\/live\/|\/shorts\/)([a-zA-Z0-9_-]{11})/i) || raw.match(/[?&]v=([a-zA-Z0-9_-]{11})/i);
+    return m ? m[1] : '';
+  }
+
+  async function submitAddUrl(e) {
+    e.preventDefault();
+    const val = document.getElementById('inputVideoUrl').value.trim();
+    if (!val) return;
+
+    const vidId = parseYoutubeId(val);
+    if (!vidId) {
+      showToast('Could not recognize a valid YouTube video ID');
+      return;
+    }
+
+    closeAddUrlModal();
+
+    if (isCloud) {
+      await dispatchCloudAction({ action: 'queue', video_id: vidId }, `[AddUrl]: ${vidId}`);
+      return;
+    }
+
+    try {
+      showToast('Queueing episode for download...');
+      const res = await fetch('/api/add_url', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ url: val, video_id: vidId })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast(data.message || 'Queued for download!');
+        setTimeout(() => location.reload(), 1500);
+      } else {
+        showToast(data.error || 'Failed to add URL');
+      }
+    } catch (e) {
+      showToast('Failed to add URL');
+    }
+  }
+
+  async function dispatchCloudAction(inputs, issueTitle) {
+    const token = getGhToken();
+    if (token) {
+      try {
+        const res = await fetch(`https://api.github.com/repos/${GH_REPO}/actions/workflows/towercast.yml/dispatches`, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ ref: 'main', inputs: inputs })
+        });
+        if (res.status === 204) {
+          showToast('⚡ Triggered in GitHub Actions! Feed will update in ~2 mins.');
+          return true;
+        } else {
+          const err = await res.json().catch(() => ({}));
+          showToast('GitHub API: ' + (err.message || res.status));
+        }
+      } catch (e) {
+        showToast('Network error contacting GitHub');
+      }
+    }
+
+    // Fallback: GitHub Issue trigger (zero tokens required)
+    const issueUrl = `https://github.com/${GH_REPO}/issues/new?title=${encodeURIComponent(issueTitle)}&body=${encodeURIComponent("Automated TowerCast cloud action. GitHub Actions will process this and close automatically.")}`;
+    if (confirm("Your Mac is offline. Trigger this action via GitHub Issue? (Or Cancel to open 1-Tap Token setup)")) {
+      window.open(issueUrl, '_blank');
+      showToast('Submit the issue on GitHub to trigger action!');
+      return true;
+    } else {
+      openTokenModal();
+      return false;
+    }
+  }
+
+  // ─── Multi-Select & Batch Deletion ────────────────────
+  let isSelectMode = false;
+  const selectedEpisodes = new Set();
+
+  function toggleSelectMode(force) {
+    isSelectMode = force !== undefined ? force : !isSelectMode;
+    const bar = document.getElementById('selectionBar');
+    const btnText = document.getElementById('btnToggleSelectText');
+    const badges = document.querySelectorAll('#panelReady .ep-select-badge');
+    const cards = document.querySelectorAll('#panelReady .ep-card');
+
+    if (isSelectMode) {
+      if (bar) bar.style.display = 'flex';
+      if (btnText) btnText.textContent = 'Cancel Selection';
+      badges.forEach(b => b.style.display = 'flex');
+      cards.forEach(c => c.classList.add('selection-mode'));
+    } else {
+      if (bar) bar.style.display = 'none';
+      if (btnText) btnText.textContent = 'Select Multiple';
+      badges.forEach(b => b.style.display = 'none');
+      cards.forEach(c => {
+        c.classList.remove('selection-mode');
+        c.classList.remove('selected');
+      });
+      selectedEpisodes.clear();
+      updateSelectionUI();
+    }
+  }
+
+  function handleCardClick(videoId, event) {
+    if (!isSelectMode) return;
+    // Don't toggle selection if the user clicked inside audio player or on buttons
+    if (event.target.closest('audio') || event.target.closest('.ep-actions') || event.target.closest('a')) {
+      return;
+    }
+    toggleEpisodeSelection(videoId);
+  }
+
+  function toggleEpisodeSelection(videoId) {
+    const card = document.getElementById('card-ready-' + videoId);
+    const badge = document.getElementById('check-badge-' + videoId);
+    if (selectedEpisodes.has(videoId)) {
+      selectedEpisodes.delete(videoId);
+      if (card) card.classList.remove('selected');
+      if (badge) badge.classList.remove('checked');
+    } else {
+      selectedEpisodes.add(videoId);
+      if (card) card.classList.add('selected');
+      if (badge) badge.classList.add('checked');
+    }
+    updateSelectionUI();
+  }
+
+  function selectAllEpisodes(select) {
+    const cards = document.querySelectorAll('#panelReady .ep-card');
+    cards.forEach(card => {
+      const vid = card.getAttribute('data-id');
+      const badge = document.getElementById('check-badge-' + vid);
+      if (select) {
+        selectedEpisodes.add(vid);
+        card.classList.add('selected');
+        if (badge) badge.classList.add('checked');
+      } else {
+        selectedEpisodes.delete(vid);
+        card.classList.remove('selected');
+        if (badge) badge.classList.remove('checked');
+      }
+    });
+    updateSelectionUI();
+  }
+
+  function updateSelectionUI() {
+    const count = selectedEpisodes.size;
+    const countEl = document.getElementById('selectionCount');
+    const deleteCountEl = document.getElementById('deleteSelectedCount');
+    const btnDelete = document.getElementById('btnDeleteSelected');
+
+    if (countEl) countEl.textContent = `${count} selected`;
+    if (deleteCountEl) deleteCountEl.textContent = count;
+    if (btnDelete) btnDelete.disabled = (count === 0);
+  }
+
+  async function deleteSelectedBatch() {
+    const ids = Array.from(selectedEpisodes);
+    if (!ids.length) return;
+    if (!confirm(`Are you sure you want to remove ${ids.length} selected episode(s) from your podcast feed?`)) return;
+
+    // Dim the selected cards
+    ids.forEach(id => {
+      const card = document.getElementById('card-ready-' + id);
+      if (card) { card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
+    });
+
+    if (isCloud) {
+      const ok = await dispatchCloudAction(
+        { action: 'delete_batch', video_id: ids.join(',') },
+        `[Delete]: ${ids.join(', ')}`
+      );
+      if (ok) {
+        toggleSelectMode(false);
+      } else {
+        ids.forEach(id => {
+          const card = document.getElementById('card-ready-' + id);
+          if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+        });
+      }
+      return;
+    }
+
+    try {
+      showToast(`Deleting ${ids.length} episode(s)...`);
+      const res = await fetch('/api/episode/delete_batch', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ video_ids: ids })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast(`Removed ${ids.length} episode(s) from feed`);
+        ids.forEach(id => {
+          const card = document.getElementById('card-ready-' + id);
+          if (card) card.remove();
+        });
+        toggleSelectMode(false);
+        setTimeout(() => location.reload(), 700);
+      } else {
+        showToast(data.error || 'Failed to remove episodes');
+        ids.forEach(id => {
+          const card = document.getElementById('card-ready-' + id);
+          if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+        });
+      }
+    } catch (e) {
+      showToast('Error removing episodes');
+      ids.forEach(id => {
+        const card = document.getElementById('card-ready-' + id);
+        if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+      });
+    }
+  }
+
+  function openClearFeedModal() {
+    const count = document.querySelectorAll('#panelReady .ep-card').length;
+    const el = document.getElementById('clearFeedCount');
+    if (el) el.textContent = count;
+    document.getElementById('modalClearFeed').classList.add('active');
+  }
+
+  function closeClearFeedModal() {
+    document.getElementById('modalClearFeed').classList.remove('active');
+  }
+
+  async function confirmClearFeed() {
+    closeClearFeedModal();
+    const cards = document.querySelectorAll('#panelReady .ep-card');
+    cards.forEach(c => { c.style.opacity = '0.4'; c.style.pointerEvents = 'none'; });
+
+    if (isCloud) {
+      const ok = await dispatchCloudAction({ action: 'clear_feed', video_id: 'all' }, '[ClearFeed]');
+      if (!ok) {
+        cards.forEach(c => { c.style.opacity = ''; c.style.pointerEvents = ''; });
+      }
+      return;
+    }
+
+    try {
+      showToast('Clearing podcast feed...');
+      const res = await fetch('/api/episode/clear_all', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('All episodes removed from feed');
+        setTimeout(() => location.reload(), 700);
+      } else {
+        showToast(data.error || 'Failed to clear feed');
+        cards.forEach(c => { c.style.opacity = ''; c.style.pointerEvents = ''; });
+      }
+    } catch (e) {
+      showToast('Error clearing feed');
+      cards.forEach(c => { c.style.opacity = ''; c.style.pointerEvents = ''; });
+    }
+  }
+
+  async function deleteEpisode(videoId, event) {
+    if (event) event.stopPropagation();
+    if (!confirm("Are you sure you want to remove this episode from your podcast feed?")) return;
+
+    const card = document.getElementById('card-ready-' + videoId);
+    if (card) { card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
+
+    if (isCloud) {
+      const ok = await dispatchCloudAction({ action: 'delete', video_id: videoId }, `[Delete]: ${videoId}`);
+      if (!ok && card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/episode/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ video_id: videoId })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('Episode removed from feed');
+        if (card) card.remove();
+        setTimeout(() => location.reload(), 700);
+      } else {
+        showToast(data.error || 'Failed to remove episode');
+        if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+      }
+    } catch (e) {
+      showToast('Error removing episode');
+      if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+    }
+  }
+
+  // ─── Queue / Skip ──────────────────────────────────────
+  async function queueVideo(videoId) {
+    const card = document.getElementById('card-' + videoId);
+    if (card) { card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
+
+    if (isCloud) {
+      const ok = await dispatchCloudAction({ action: 'queue', video_id: videoId }, `[Queue]: ${videoId}`);
+      if (!ok && card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/queue', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ video_id: videoId })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('Added to podcast feed');
+        setTimeout(() => location.reload(), 700);
+      }
+    } catch (e) {
+      showToast('Could not queue episode');
+      if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+    }
+  }
+
+  async function skipVideo(videoId) {
+    const card = document.getElementById('card-' + videoId);
+    if (card) card.remove();
+    showToast('Episode dismissed');
+
+    if (!isCloud) {
+      try {
+        await fetch('/api/skip', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ video_id: videoId })
+        });
+      } catch (e) {}
+    }
+  }
+
+  async function queueAllPending() {
+    if (isCloud) {
+      await dispatchCloudAction({ action: 'sync', scan_limit: '50' }, `[Queue]: all`);
+      return;
+    }
+    try {
+      await fetch('/api/sync', { method: 'POST' });
+      showToast('All pending episodes queued');
+      setTimeout(() => location.reload(), 1000);
+    } catch (e) { showToast('Error queuing all'); }
+  }
+
+  // ─── Sync Channel ──────────────────────────────────────
+  async function triggerSync(limit = 30) {
+    const btn = document.getElementById(limit > 50 ? 'btnBacklog' : 'btnSync');
+    const origText = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span>⏳</span> Syncing...'; }
+
+    if (isCloud) {
+      await dispatchCloudAction({ action: 'sync', scan_limit: String(limit) }, `[Sync]: limit ${limit}`);
+      if (btn) { btn.disabled = false; btn.innerHTML = origText; }
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ limit: limit })
+      });
+      const data = await res.json();
+      showToast(limit > 50 ? 'Backlog scan started (150 videos)...' : 'Sync started...');
+      setTimeout(() => location.reload(), 4000);
+    } catch (e) {
+      showToast('Sync failed');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = origText; }
+    }
+  }
+
+  // Initialize token status
+  updateTokenBadge();
+</script>
+
+</body>
+</html>
