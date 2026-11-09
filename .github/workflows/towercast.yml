@@ -1,15 +1,17 @@
 name: TowerCast Sync
 
 on:
-  # Run every hour at :05 to capture new uploads and live streams
+  # Fallback only: the Cloudflare Worker watches YouTube every 10 minutes and
+  # starts this workflow when there's something new. GitHub's own schedule is
+  # best-effort (often late, sometimes dropped), so it's just a safety net.
   schedule:
-    - cron: '5 * * * *'
+    - cron: '23 */3 * * *'
 
-  # Manual dispatch or mobile GitHub Pages trigger
+  # Worker trigger, dashboard actions (Add URL, delete, ...) and manual runs
   workflow_dispatch:
     inputs:
       action:
-        description: 'Action (sync, queue, add_url, delete, delete_batch, clear_feed, add_favorite, delete_favorite)'
+        description: 'Action (sync, queue, add_url, delete, delete_batch, clear_feed, add_favorite, delete_favorite, migrate_r2, purge_release_audio)'
         required: false
         default: 'sync'
       video_id:
@@ -26,29 +28,45 @@ on:
         required: false
         default: '30'
 
-  # Mobile triggers via GitHub Issues (works 100% when Mac is off)
+  # Issue triggers from the dashboard fallback (only the repo owner's issues run)
   issues:
     types: [opened]
 
 concurrency:
-  group: pages-deploy
-  cancel-in-progress: true
+  group: towercast-sync
+  cancel-in-progress: false   # queue runs instead of killing an in-progress upload
 
 jobs:
   sync:
-    name: Sync & Deploy Feed
+    name: Sync & Publish Feed
+    # Only the repo owner can trigger runs via issues
+    if: github.event_name != 'issues' || github.event.issue.user.login == github.repository_owner
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write   # needed to create releases and push gh-pages
-      pages: write      # needed for GitHub Pages deployment
-      issues: write     # needed to comment on and close triggers
+      contents: write   # create/delete metadata releases
+      issues: write     # comment on and close triggers
+
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_REPOSITORY: ${{ github.repository }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET: towercast
+      FEED_BASE_URL: ${{ secrets.FEED_BASE_URL }}
+      AUDIO_TOKEN: ${{ secrets.AUDIO_TOKEN }}
+      FEED_USER: ${{ secrets.FEED_USER }}
+      FEED_PASS: ${{ secrets.FEED_PASS }}
+      YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install system dependencies (ffmpeg)
+        if: github.event.inputs.action != 'migrate_r2' && github.event.inputs.action != 'purge_release_audio'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg
@@ -68,29 +86,20 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          pip install yt-dlp bottle
+          pip install yt-dlp bottle boto3
 
       - name: Verify yt-dlp
         run: yt-dlp --version
 
+      - name: Migrate audio to R2 / purge public copies (one-time)
+        if: github.event.inputs.action == 'migrate_r2' || github.event.inputs.action == 'purge_release_audio'
+        run: python3 github/migrate_to_r2.py ${{ github.event.inputs.action == 'purge_release_audio' && '--purge' || '' }}
+
       - name: Run TowerCast feed builder
+        if: github.event.inputs.action != 'migrate_r2' && github.event.inputs.action != 'purge_release_audio'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
           SCAN_LIMIT: ${{ github.event.inputs.scan_limit || '30' }}
           ACTION: ${{ github.event.inputs.action || 'sync' }}
           VIDEO_ID: ${{ github.event.inputs.url || github.event.inputs.video_id || '' }}
           KEYWORD: ${{ github.event.inputs.keyword || '' }}
-          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
         run: python3 github/feed_builder.py
-
-      - name: Deploy feed.xml & Dashboard to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./gh-pages-output
-          keep_files: false
-          force_orphan: true
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'TowerCast sync: ${{ github.run_id }}'

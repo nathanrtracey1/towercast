@@ -82,7 +82,7 @@ class WebServer:
             threading.Thread(target=git_push, daemon=True).start()
 
     def _sync_ready_episodes_to_github(self):
-        """If GitHub is enabled, uploads any newly ready episodes to GitHub Releases and rebuilds feed."""
+        """If GitHub is enabled, publishes newly ready episodes to the cloud feed (R2 + Releases) and rebuilds it."""
         if not self.config.get("github", {}).get("enabled"):
             return
 
@@ -92,13 +92,18 @@ class WebServer:
                 if not repo:
                     return
 
-                from github.feed_builder import build_release_body
+                from github import r2
+                from github.publish import publish_episode
+                if not r2.is_configured():
+                    logger.info("R2 isn't configured on this Mac; leaving cloud publishing to GitHub Actions.")
+                    return
+
                 ready = self.db.get_ready_episodes()
                 if not ready:
                     return
 
                 res = subprocess.run(
-                    ["gh", "release", "list", "--repo", repo, "--limit", "100", "--json", "tagName", "--jq", ".[].tagName"],
+                    ["gh", "release", "list", "--repo", repo, "--limit", "200", "--json", "tagName", "--jq", ".[].tagName"],
                     capture_output=True, text=True
                 )
                 existing_tags = set(line.strip() for line in res.stdout.strip().splitlines() if line.strip())
@@ -123,20 +128,12 @@ class WebServer:
                         'matched_keyword': ep['matched_keyword'],
                         'file_size': ep['file_size']
                     }
-                    body = build_release_body(meta)
-                    logger.info(f"Uploading new episode to GitHub Releases ({tag}): {ep['title']}")
-                    sub_res = subprocess.run([
-                        "gh", "release", "create", tag,
-                        audio_path,
-                        "--title", ep["title"],
-                        "--notes", body,
-                        "--repo", repo
-                    ], capture_output=True, text=True)
-                    if sub_res.returncode == 0:
+                    logger.info(f"Publishing new episode to the cloud feed ({tag}): {ep['title']}")
+                    if publish_episode(meta, audio_path, repo):
                         uploaded += 1
 
                 if uploaded > 0:
-                    logger.info(f"Uploaded {uploaded} episode(s) to GitHub. Triggering feed rebuild...")
+                    logger.info(f"Published {uploaded} episode(s). Triggering feed rebuild...")
                     subprocess.run(["gh", "workflow", "run", "towercast.yml", "--repo", repo], check=False)
             except Exception as e:
                 logger.error(f"Error in background GitHub upload: {e}")
@@ -158,7 +155,7 @@ class WebServer:
             lan_ip = get_lan_ip()
             lan_url = f"http://{lan_ip}:{port}"
             remote_url = self.config.get("remote_url", "")
-            gh_pages_url = self.config.get("github", {}).get("pages_url", "")
+            gh_pages_url = os.environ.get("FEED_BASE_URL", "") or self.config.get("github", {}).get("pages_url", "")
             gh_feed_url = f"{gh_pages_url.rstrip('/')}/feed.xml" if gh_pages_url else ""
 
             return template(
@@ -265,26 +262,15 @@ class WebServer:
                 except Exception as e:
                     logger.warning(f"Could not remove local audio dir {ep_dir}: {e}")
 
-            # If GitHub is enabled, delete release in GitHub Releases and trigger feed rebuild
+            # If GitHub is enabled, let the cloud builder delete the episode (R2 audio + release) and rebuild
             if self.config.get("github", {}).get("enabled"):
                 def delete_from_gh():
                     repo = self.config.get("github", {}).get("repo")
-                    token = os.environ.get("GITHUB_TOKEN")
-                    if token and repo:
-                        try:
-                            from github.github_api import GitHubAPI
-                            api = GitHubAPI(token=token, repo=repo)
-                            api.delete_release_by_tag(f"ep-{video_id}")
-                            logger.info(f"Deleted release ep-{video_id} via GitHub API")
-                        except Exception as e:
-                            logger.warning(f"GitHub API release delete failed: {e}")
-
                     try:
-                        subprocess.run(["gh", "release", "delete", f"ep-{video_id}", "--yes", "--repo", repo], check=False)
-                        subprocess.run(["gh", "workflow", "run", "towercast.yml", "--repo", repo], check=False)
-                        logger.info(f"Deleted release ep-{video_id} and triggered feed rebuild")
+                        subprocess.run(["gh", "workflow", "run", "towercast.yml", "-f", "action=delete", "-f", f"video_id={video_id}", "--repo", repo], check=False)
+                        logger.info(f"Triggered cloud delete for {video_id}")
                     except Exception as e:
-                        logger.warning(f"Could not delete release ep-{video_id} on GitHub via gh: {e}")
+                        logger.warning(f"Could not trigger cloud delete for {video_id}: {e}")
 
                 threading.Thread(target=delete_from_gh, daemon=True).start()
 
@@ -313,19 +299,10 @@ class WebServer:
                     except Exception as e:
                         logger.warning(f"Could not remove local audio dir {ep_dir}: {e}")
 
-            # If GitHub is enabled, trigger batch deletion in cloud
+            # If GitHub is enabled, let the cloud builder delete the episodes (R2 audio + releases)
             if self.config.get("github", {}).get("enabled"):
                 def delete_batch_gh():
                     repo = self.config.get("github", {}).get("repo")
-                    token = os.environ.get("GITHUB_TOKEN")
-                    if token and repo:
-                        try:
-                            from github.github_api import GitHubAPI
-                            api = GitHubAPI(token=token, repo=repo)
-                            for vid in video_ids:
-                                api.delete_release_by_tag(f"ep-{vid}")
-                        except Exception as e:
-                            logger.warning(f"GitHub API batch delete failed: {e}")
                     try:
                         subprocess.run(["gh", "workflow", "run", "towercast.yml", "-f", "action=delete_batch", "-f", f"video_id={','.join(video_ids)}", "--repo", repo], check=False)
                     except Exception as e:
@@ -437,7 +414,7 @@ class WebServer:
                     logger.error(f"Failed to process episode {video_id}: {e}")
                     self.db.mark_status(video_id, "failed")
 
-            # Check if any new episodes need to be synced to GitHub Releases
+            # Check if any new episodes need to be synced to the cloud feed
             self._sync_ready_episodes_to_github()
         finally:
             self._is_processing = False

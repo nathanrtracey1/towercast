@@ -1089,7 +1089,7 @@
     copyText(url, 'Feed URL copied — paste into Overcast');
   }
 
-  const isCloud = window.location.hostname.includes('github.io');
+  const isCloud = window.location.hostname.includes('github.io') || window.location.hostname.includes('workers.dev');
   const GH_REPO = 'nathanrtracey1/towercast';
 
   function getGhToken() {

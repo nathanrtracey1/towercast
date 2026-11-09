@@ -135,9 +135,11 @@ def process_github_triggers(config: Dict[str, Any], db: Database):
                             shutil.rmtree(ep_dir)
                         except Exception:
                             pass
+                    from github.publish import remove_episode_audio
+                    remove_episode_audio(vid_id)
                     subprocess.run(["gh", "release", "delete", f"ep-{vid_id}", "--yes", "--repo", repo], check=False)
                     subprocess.run(
-                        ["gh", "issue", "close", str(num), "--comment", f"Episode `{vid_id}` removed from feed and Releases.", "--repo", repo],
+                        ["gh", "issue", "close", str(num), "--comment", f"Episode `{vid_id}` removed from feed.", "--repo", repo],
                         check=False
                     )
     except Exception as e:
@@ -238,7 +240,7 @@ def cmd_sync(args, config):
     ready = db.get_ready_episodes()
     print(f"\n🎉 Sync complete! Total active podcast episodes in feed: {len(ready)}")
 
-    # Automatically publish to GitHub Releases and update GitHub Pages feed if enabled
+    # Automatically publish to the cloud feed if enabled
     if config.get("github", {}).get("enabled"):
         cmd_publish(args, config)
 
@@ -441,7 +443,7 @@ def cmd_github_setup(args, config):
 
 
 def cmd_publish(args, config):
-    """Uploads local ready episodes to GitHub Releases and triggers GitHub Pages feed rebuild."""
+    """Uploads local ready episodes to the cloud feed (audio to R2, metadata to Releases) and rebuilds it."""
     gh_cfg = config.get("github", {})
     if not gh_cfg.get("enabled"):
         print("❌ GitHub integration is not enabled in config.json. Run 'python3 tower_cast.py github-setup' first.")
@@ -453,11 +455,14 @@ def cmd_publish(args, config):
         print("ℹ No ready episodes found to upload.")
         return
 
-    from github.feed_builder import build_release_body
-    import subprocess
+    from github import r2
+    from github.publish import publish_episode
+    if not r2.is_configured():
+        print(f"❌ R2 isn't configured on this Mac. Set these environment variables first: {', '.join(r2.REQUIRED_ENV)}")
+        return
 
     res = subprocess.run(
-        ["gh", "release", "list", "--repo", repo, "--limit", "100", "--json", "tagName", "--jq", ".[].tagName"],
+        ["gh", "release", "list", "--repo", repo, "--limit", "200", "--json", "tagName", "--jq", ".[].tagName"],
         capture_output=True, text=True
     )
     existing_tags = set(line.strip() for line in res.stdout.strip().splitlines() if line.strip())
@@ -482,27 +487,18 @@ def cmd_publish(args, config):
             'matched_keyword': ep['matched_keyword'],
             'file_size': ep['file_size']
         }
-        body = build_release_body(meta)
-        print(f"⬆ Uploading to GitHub Release ({tag}): {ep['title']}...")
-        sub_res = subprocess.run([
-            "gh", "release", "create", tag,
-            audio_path,
-            "--title", ep["title"],
-            "--notes", body,
-            "--repo", repo
-        ], capture_output=True, text=True)
-        if sub_res.returncode == 0:
+        print(f"⬆ Publishing {tag}: {ep['title']}...")
+        if publish_episode(meta, audio_path, repo):
             print(f"  ✓ Uploaded {tag}")
             uploaded += 1
         else:
-            print(f"  ❌ Failed to upload {tag}: {sub_res.stderr.strip()}")
+            print(f"  ❌ Failed to upload {tag} (see log above)")
 
-    print(f"\n📊 {uploaded} new episode(s) uploaded to GitHub Releases.")
+    print(f"\n📊 {uploaded} new episode(s) published.")
     if uploaded > 0 or getattr(args, "rebuild", False):
         print("🚀 Triggering GitHub Actions feed rebuild...")
         subprocess.run(["gh", "workflow", "run", "towercast.yml", "--repo", repo])
-        pages_url = gh_cfg.get("pages_url", "").rstrip("/")
-        print(f"✅ Feed will be updated at: {pages_url}/feed.xml")
+        print(f"✅ Feed will be updated at: {os.environ['FEED_BASE_URL'].rstrip('/')}/feed.xml")
 
 
 def main():
@@ -538,7 +534,7 @@ def main():
     )
 
     # publish
-    pub_parser = subparsers.add_parser("publish", help="Upload local ready episodes to GitHub Releases and rebuild feed")
+    pub_parser = subparsers.add_parser("publish", help="Upload local ready episodes to the cloud feed and rebuild it")
     pub_parser.add_argument("--rebuild", action="store_true", help="Force rebuild even if no new episodes were uploaded")
 
     args = parser.parse_args()

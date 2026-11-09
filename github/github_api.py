@@ -126,6 +126,10 @@ class GitHubAPI:
             pass
         return True
 
+    def delete_asset(self, asset_id: int) -> bool:
+        self._request("DELETE", f"/repos/{self.repo}/releases/assets/{asset_id}")
+        return True
+
     def upload_asset(self, release_id: int, filename: str,
                      file_bytes: bytes, content_type: str = "audio/mp4") -> Dict:
         """Uploads a binary asset to a release. Returns the asset JSON."""

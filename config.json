@@ -11,6 +11,7 @@
   "sync_interval_minutes": 60,
   "max_episodes_in_feed": 50,
   "auto_prune_old_episodes": true,
+  "private_feed": true,
   "feed_title": "The Dice Tower (TowerCast)",
   "feed_description": "Private audio podcast feed generated from The Dice Tower YouTube channel via TowerCast.",
   "feed_author": "The Dice Tower",
@@ -19,7 +20,7 @@
     "enabled": true,
     "username": "nathanrtracey1",
     "repo": "nathanrtracey1/towercast",
-    "pages_url": "https://nathanrtracey1.github.io/towercast",
-    "comment": "Managed by TowerCast github-setup wizard."
+    "pages_url": "",
+    "comment": "Feed and dashboard are served by the Cloudflare Worker (FEED_BASE_URL secret); GitHub Pages is no longer used."
   }
 }

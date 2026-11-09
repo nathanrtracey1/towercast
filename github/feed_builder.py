@@ -4,14 +4,15 @@ TowerCast GitHub CI Feed Builder
 =================================
 Runs inside GitHub Actions to:
   1. Handle incoming triggers:
-     - Scheduled scan / manual sync
-     - Direct queue request (action=queue, video_id=...)
+     - New-video watcher (Cloudflare Worker) / fallback schedule / manual sync
+     - Direct queue request (action=queue, video_id=...) — e.g. "Add URL" in the dashboard
      - Favorite rule management (action=add_favorite / delete_favorite)
-     - Issue-based triggers from mobile GitHub Pages ([Queue]: <video_id>, [Favorite]: <keyword>)
-  2. Scan YouTube channel (both uploads and live streams)
-  3. Auto-download matching episodes and upload audio to GitHub Releases
-  4. Collect pending review episodes and active show rules
-  5. Deploy complete interactive Apple HIG dashboard & feed.xml to GitHub Pages
+     - Issue-based triggers from the owner ([Queue]: <video_id>, [Delete]: <ids>, ...)
+  2. Scan YouTube channel (both uploads and live streams; Shorts are skipped)
+  3. Download new episodes, store audio in Cloudflare R2, record metadata in GitHub Releases
+  4. Keep a rolling feed of the newest episodes (manually added ones are protected)
+  5. Publish the private feed.xml + dashboard to R2 (served by the Worker behind a password)
+  6. Save the list of handled video IDs so the Worker only wakes us for new ones
 """
 import json
 import logging
@@ -20,6 +21,8 @@ import re
 import subprocess
 import sys
 import tempfile
+import urllib.parse
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
@@ -31,6 +34,7 @@ from engine.youtube import YouTubeEngine, parse_youtube_url
 from engine.downloader import Downloader
 from engine.feed_generator import FeedGenerator, format_duration, parse_to_rfc822, parse_date_to_datetime
 from github.github_api import GitHubAPI
+from github import r2
 
 logging.basicConfig(
     level=logging.INFO,
@@ -62,6 +66,37 @@ def video_id_from_tag(tag: str) -> Optional[str]:
     if tag.startswith(RELEASE_TAG_PREFIX):
         return tag[len(RELEASE_TAG_PREFIX):]
     return None
+
+
+def delete_episode(api: GitHubAPI, video_id: str) -> bool:
+    """Deletes an episode's audio in R2 and its metadata release."""
+    for ext in ("m4a", "mp3"):
+        try:
+            r2.delete_key(r2.audio_key(video_id, ext))
+        except Exception as e:
+            logger.warning(f"Could not delete R2 audio for {video_id}: {e}")
+    return api.delete_release_by_tag(tag_for(video_id))
+
+
+def private_feed_url() -> Optional[str]:
+    """Feed URL with credentials embedded, the form Overcast's "Add URL" expects."""
+    base, user, pw = (os.environ.get(k) for k in ("FEED_BASE_URL", "FEED_USER", "FEED_PASS"))
+    if not (base and user and pw):
+        return None
+    scheme, rest = base.rstrip("/").split("://", 1)
+    return f"{scheme}://{user}:{pw}@{rest}/feed.xml"
+
+
+def ping_overcast():
+    """Asks Overcast to recrawl the private feed now instead of waiting for its schedule."""
+    feed = private_feed_url()
+    if not feed:
+        return
+    try:
+        urllib.request.urlopen("https://overcast.fm/ping?" + urllib.parse.urlencode({"urlprefix": feed}), timeout=15)
+        logger.info("📣 Pinged Overcast to refresh the feed")
+    except Exception as e:
+        logger.warning(f"Overcast ping failed: {e}")
 
 
 def load_dismissed_ids(api: GitHubAPI) -> set:
@@ -106,6 +141,7 @@ def build_release_body(meta: Dict[str, Any]) -> str:
         "chapters": meta.get("chapters", []),
         "matched_keyword": meta.get("matched_keyword"),
         "file_size": meta.get("file_size", 0),
+        "audio_ext": meta.get("audio_ext", "m4a"),
         "is_manual_request": meta.get("is_manual_request", False),
         "added_at": meta.get("added_at") or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
     }
@@ -124,15 +160,14 @@ def parse_release_body(body: str) -> Optional[Dict[str, Any]]:
 
 
 def get_existing_episode_ids(api: GitHubAPI) -> Dict[str, Dict]:
-    """Returns {video_id: release_json} for all TowerCast releases with an audio asset."""
+    """Returns {video_id: release_json} for all TowerCast episode releases."""
     releases = api.list_all_releases()
     result = {}
     for rel in releases:
         vid_id = video_id_from_tag(rel.get("tag_name", ""))
-        if vid_id and rel.get("assets"):
+        if vid_id:
             result[vid_id] = rel
     return result
-
 
 
 def episode_from_release(release: Dict) -> Optional[Dict[str, Any]]:
@@ -141,17 +176,16 @@ def episode_from_release(release: Dict) -> Optional[Dict[str, Any]]:
     if not meta:
         return None
 
-    audio_url = None
+    vid = meta.get("id") or video_id_from_tag(release.get("tag_name", ""))
+    ext = meta.get("audio_ext")
     file_size = 0
-    for asset in release.get("assets", []):
+    for asset in release.get("assets", []):  # legacy episodes created before R2
         name = asset.get("name", "")
         if name.endswith((".m4a", ".mp3", ".aac", ".opus")):
-            audio_url = asset.get("browser_download_url")
+            ext = ext or name.rsplit(".", 1)[1]
             file_size = asset.get("size", 0)
             break
-
-    if not audio_url:
-        return None
+    ext = ext or "m4a"
 
     is_manual = meta.get("is_manual_request") or (meta.get("matched_keyword") in ("Manual Cloud Queue", "Manual Request", "Added via URL"))
     # For manually requested older episodes, use the added_at date for the podcast feed
@@ -159,10 +193,10 @@ def episode_from_release(release: Dict) -> Optional[Dict[str, Any]]:
     feed_published_at = meta.get("added_at") if (is_manual and meta.get("added_at")) else (meta.get("published_at") or release.get("published_at"))
 
     return {
-        "id": meta.get("id") or video_id_from_tag(release.get("tag_name", "")),
+        "id": vid,
         "title": meta.get("title") or release.get("name"),
-        "audio_url": audio_url,
-        "audio_filename": f"{meta.get('id')}/{meta.get('id')}.m4a",
+        "audio_url": r2.audio_url(vid, ext),
+        "audio_filename": f"{vid}/{vid}.{ext}",
         "file_size": meta.get("file_size") or file_size,
         "duration": meta.get("duration"),
         "published_at": feed_published_at,
@@ -175,10 +209,9 @@ def episode_from_release(release: Dict) -> Optional[Dict[str, Any]]:
     }
 
 
-
 def download_and_upload(video_id: str, video_url: str, classified: Dict,
                         api: GitHubAPI, config: Dict) -> Optional[Dict[str, Any]]:
-    """Downloads audio, uploads to a new GitHub Release, returns episode metadata."""
+    """Downloads audio, stores it in R2, records a metadata release, returns episode metadata."""
     cookies_path = None
     cookies_content = os.environ.get("YOUTUBE_COOKIES", "").strip()
     if cookies_content:
@@ -214,64 +247,66 @@ def download_and_upload(video_id: str, video_url: str, classified: Dict,
 
         result["thumbnail_url"] = classified.get("thumbnail_url")
         result["matched_keyword"] = classified.get("matched_keyword")
+        for key in ("is_manual_request", "added_at"):
+            if classified.get(key):
+                result[key] = classified[key]
+
+        # Audio goes to R2 first, so any release that exists always has its audio
+        ext = os.path.splitext(audio_path)[1].lstrip(".") or "m4a"
+        content_type = "audio/mp4" if ext == "m4a" else "audio/mpeg"
+        logger.info(f"⬆  Uploading {video_id}.{ext} to R2 ({result['file_size'] // (1024*1024)} MB)...")
+        try:
+            r2.upload_file(audio_path, r2.audio_key(video_id, ext), content_type)
+        except Exception as e:
+            logger.error(f"R2 upload failed for {video_id}: {e}")
+            return None
+
+        result["audio_ext"] = ext
+        result["audio_url"] = r2.audio_url(video_id, ext)
 
         tag = tag_for(video_id)
         release_name = result.get("title") or title
-        release_body = build_release_body(result)
-
-        logger.info(f"📦 Creating GitHub Release: {tag}")
+        logger.info(f"📦 Creating metadata release: {tag}")
         try:
-            release = api.create_release(tag=tag, name=release_name, body=release_body)
+            api.create_release(tag=tag, name=release_name, body=build_release_body(result))
         except Exception as e:
             logger.error(f"Failed to create release for {video_id}: {e}")
             return None
-
-        release_id = release["id"]
-        audio_filename = os.path.basename(audio_path)
-        content_type = "audio/mp4" if audio_filename.endswith(".m4a") else "audio/mpeg"
-
-        logger.info(f"⬆  Uploading {audio_filename} ({result['file_size'] // (1024*1024)} MB)...")
-        try:
-            asset = api.upload_asset_from_file(release_id, audio_path, content_type)
-        except Exception as e:
-            logger.error(f"Upload failed for {video_id}: {e}")
-            return None
-
-        result["audio_url"] = asset["browser_download_url"]
-        result["file_size"] = asset.get("size", result["file_size"])
 
         logger.info(f"✅ {release_name} uploaded successfully")
         return result
 
 
-def build_pages_output(episodes: List[Dict], pending_episodes: List[Dict], config: Dict, pages_url: str) -> Path:
-    """Generates gh-pages-output/ with feed.xml and full interactive dashboard index.html."""
+def build_pages_output(episodes: List[Dict], pending_episodes: List[Dict], config: Dict, feed_base_url: str) -> Path:
+    """Generates feed.xml and the dashboard, and publishes both to R2 behind the Worker."""
     out = ROOT / "gh-pages-output"
     out.mkdir(exist_ok=True)
 
     gh_config = dict(config)
-    gh_config["public_base_url"] = pages_url.rstrip("/")
+    gh_config["public_base_url"] = feed_base_url.rstrip("/")
 
     fg = FeedGenerator(gh_config)
     xml = fg.generate_feed_xml_with_full_urls(episodes)
 
     feed_path = out / "feed.xml"
     feed_path.write_text(xml, encoding="utf-8")
-    logger.info(f"📄 Wrote feed.xml ({len(xml)} bytes, {len(episodes)} episodes)")
+    r2.upload_bytes(xml.encode("utf-8"), "feed.xml", "application/rss+xml; charset=utf-8", cache_control="no-cache")
+    logger.info(f"📄 Published feed.xml ({len(xml)} bytes, {len(episodes)} episodes)")
 
-    # Render dashboard template for GitHub Pages
+    # Render dashboard template (served at the Worker root, behind the same password)
     try:
         from bottle import template, TEMPLATE_PATH
         TEMPLATE_PATH.insert(0, str(ROOT / "server" / "templates"))
 
+        overcast_url = private_feed_url() or f"{feed_base_url.rstrip('/')}/feed.xml"
         index_html = template(
             "index.html",
             pending_episodes=pending_episodes,
             ready_episodes=episodes,
             queued_episodes=[],
-            feed_url=f"{pages_url.rstrip('/')}/feed.xml",
-            gh_feed_url=f"{pages_url.rstrip('/')}/feed.xml",
-            gh_pages_url=pages_url,
+            feed_url=overcast_url,
+            gh_feed_url=overcast_url,
+            gh_pages_url=feed_base_url,
             lan_url="",
             remote_url="",
             auto_keywords=config.get("auto_include_keywords", []),
@@ -279,11 +314,19 @@ def build_pages_output(episodes: List[Dict], pending_episodes: List[Dict], confi
             format_duration=format_duration
         )
         (out / "index.html").write_text(index_html, encoding="utf-8")
-        logger.info("🌐 Wrote interactive dashboard index.html for GitHub Pages")
+        r2.upload_bytes(index_html.encode("utf-8"), "index.html", "text/html; charset=utf-8", cache_control="no-cache")
+        logger.info("🌐 Published dashboard index.html")
     except Exception as e:
         logger.error(f"Failed to render dashboard template: {e}")
 
     return out
+
+
+def save_known_ids(known: set):
+    """Tells the Worker which videos are handled, so it only starts a run for new ones."""
+    payload = {"ids": sorted(known), "updated_at": datetime.now(timezone.utc).isoformat()}
+    r2.upload_bytes(json.dumps(payload).encode("utf-8"), "state/known_ids.json", "application/json")
+    logger.info(f"🧭 Saved {len(known)} known video IDs for the watcher.")
 
 
 def handle_issue_event(api: GitHubAPI, config: Dict) -> Tuple[Optional[str], Optional[str], Optional[int]]:
@@ -346,6 +389,9 @@ def main():
     if not token or not gh_repo:
         logger.error("GITHUB_TOKEN and GITHUB_REPOSITORY must be set.")
         sys.exit(1)
+    if not r2.is_configured():
+        logger.error(f"R2 storage is not configured. Set these repo secrets: {', '.join(r2.REQUIRED_ENV)}")
+        sys.exit(1)
 
     scan_limit = int(os.environ.get("SCAN_LIMIT", "30"))
     action = os.environ.get("ACTION", "sync").lower().strip()
@@ -353,14 +399,11 @@ def main():
     keyword = os.environ.get("KEYWORD", "").strip()
 
     config = load_config()
-    gh_cfg = config.get("github", {})
-    pages_url = gh_cfg.get("pages_url", "").rstrip("/")
-    if not pages_url:
-        pages_url = f"https://{gh_repo.split('/')[0]}.github.io/{gh_repo.split('/')[1]}"
+    feed_base_url = os.environ["FEED_BASE_URL"].rstrip("/")
 
     api = GitHubAPI(token=token, repo=gh_repo)
 
-    # Check if triggered by an issue (from mobile GitHub Pages)
+    # Check if triggered by an issue (the workflow only lets the repo owner's issues through)
     issue_action, issue_arg, issue_num = handle_issue_event(api, config)
     if issue_action:
         action = issue_action
@@ -378,17 +421,16 @@ def main():
         all_releases = api.list_all_releases()
         cleared_count = 0
         for rel in all_releases:
-            tag = rel.get("tag_name", "")
-            vid_id = video_id_from_tag(tag)
+            vid_id = video_id_from_tag(rel.get("tag_name", ""))
             if vid_id:
                 try:
-                    api.delete_release_by_tag(tag)
+                    delete_episode(api, vid_id)
                     dismissed_ids.add(vid_id)
                     cleared_count += 1
                 except Exception as e:
-                    logger.warning(f"Could not delete release {tag}: {e}")
+                    logger.warning(f"Could not delete episode {vid_id}: {e}")
         save_dismissed_ids(api, dismissed_ids)
-        logger.info(f"✅ Cleared {cleared_count} episodes from Releases and recorded to history.")
+        logger.info(f"✅ Cleared {cleared_count} episodes and recorded to history.")
         if issue_num:
             try:
                 api.comment_issue(issue_num, f"Cleared all {cleared_count} episodes from TowerCast feed.")
@@ -402,15 +444,14 @@ def main():
         deleted_count = 0
         for raw_id in raw_ids:
             vid = parse_youtube_url(raw_id) or raw_id
-            tag = tag_for(vid)
-            logger.info(f"🗑 Deleting episode release: {tag}")
+            logger.info(f"🗑 Deleting episode: {vid}")
             try:
-                api.delete_release_by_tag(tag)
+                delete_episode(api, vid)
                 dismissed_ids.add(vid)
                 deleted_count += 1
-                logger.info(f"✅ Successfully deleted release {tag}")
+                logger.info(f"✅ Successfully deleted {vid}")
             except Exception as e:
-                logger.warning(f"Could not delete release {tag}: {e}")
+                logger.warning(f"Could not delete episode {vid}: {e}")
         save_dismissed_ids(api, dismissed_ids)
         logger.info(f"💾 Added {deleted_count} video ID(s) to dismissed history.")
         if issue_num:
@@ -420,7 +461,7 @@ def main():
             except Exception as e:
                 logger.warning(f"Could not close issue #{issue_num}: {e}")
 
-    # Handle single video queueing
+    # Handle single video queueing (dashboard "Add URL", issues, manual dispatch)
     if action == "queue" and target_video_id:
         target_video_id = parse_youtube_url(target_video_id) or target_video_id
         if target_video_id in dismissed_ids:
@@ -445,7 +486,7 @@ def main():
                     api.comment_issue(issue_num, f"Successfully downloaded and added to feed!")
                     api.close_issue(issue_num)
                 else:
-                    api.comment_issue(issue_num, f"YouTube requires residential IP. Queued for your Mac background runner to download on next hourly sync.")
+                    api.comment_issue(issue_num, f"Download failed (YouTube may be blocking the cloud runner). Check the workflow log, or queue it again later.")
             except Exception as e:
                 pass
 
@@ -466,6 +507,7 @@ def main():
 
     logger.info(f"📡 Scanning uploads & live streams (limit={scan_limit})...")
     pending_entries = []
+    skipped_ids = set()
     try:
         _, entries = yt.fetch_channel_entries(limit=scan_limit)
         logger.info(f"Found {len(entries)} total entries across uploads and live streams.")
@@ -473,13 +515,16 @@ def main():
         # All entries within current scan limit are eligible for auto-download
         new_batch_threshold = scan_limit
 
-
         for idx, entry in enumerate(entries):
             is_backlog = not entry.get("is_recent", True) if "is_recent" in entry else (idx >= new_batch_threshold)
             classified = yt.classify_entry(entry, is_backlog=is_backlog)
             vid_id = classified["id"]
 
-            if classified.get("is_scheduled_or_live") or classified["is_short"] or vid_id in existing:
+            if classified.get("is_scheduled_or_live") or vid_id in existing:
+                continue
+
+            if classified["is_short"]:
+                skipped_ids.add(vid_id)
                 continue
 
             if vid_id in dismissed_ids:
@@ -516,7 +561,6 @@ def main():
     all_releases = api.list_all_releases()
     all_episodes: List[Dict] = []
 
-
     for rel in all_releases:
         ep = episode_from_release(rel)
         if ep:
@@ -532,7 +576,7 @@ def main():
     keep_episodes = all_episodes[:max_eps]
     prune_episodes = all_episodes[max_eps:]
 
-    # Automatic rolling retention: delete releases older than retention limit
+    # Automatic rolling retention: delete episodes older than retention limit
     if prune_episodes and config.get("auto_prune_old_episodes", True):
         logger.info(f"🧹 Auto-pruning {len(prune_episodes)} old episode(s) beyond feed retention limit ({max_eps})...")
         for ep in prune_episodes:
@@ -541,22 +585,28 @@ def main():
                 keep_episodes.append(ep)
                 continue
             vid = ep["id"]
-            tag = tag_for(vid)
             try:
-                api.delete_release_by_tag(tag)
+                delete_episode(api, vid)
                 dismissed_ids.add(vid)
-                logger.info(f"Deleted old release: {tag}")
+                logger.info(f"Deleted old episode: {vid}")
             except Exception as e:
-                logger.warning(f"Could not prune release {tag}: {e}")
+                logger.warning(f"Could not prune episode {vid}: {e}")
         save_dismissed_ids(api, dismissed_ids)
 
     all_episodes = keep_episodes
 
     logger.info(f"📊 Total episodes in podcast feed: {len(all_episodes)} | Pending review: {len(pending_entries)}")
 
-    # ── Step 4: Write GitHub Pages output ────────────────────────────────
-    build_pages_output(all_episodes, pending_entries, config, pages_url)
-    logger.info("🚀 Done. gh-pages-output/ ready for deployment.")
+    # ── Step 4: Publish feed + dashboard ─────────────────────────────────
+    build_pages_output(all_episodes, pending_entries, config, feed_base_url)
+    ping_overcast()
+
+    # ── Step 5: Tell the watcher what's been handled ─────────────────────
+    # Upcoming live streams and failed downloads stay out of this list, so the
+    # Worker keeps retrying them (with backoff) until they make it into the feed.
+    known = set(existing) | dismissed_ids | skipped_ids | {e["id"] for e in pending_entries}
+    save_known_ids(known)
+    logger.info("🚀 Done.")
 
 
 if __name__ == "__main__":

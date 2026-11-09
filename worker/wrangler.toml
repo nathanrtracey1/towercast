@@ -1,0 +1,20 @@
+name = "towercast"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "towercast"
+
+# Check YouTube's RSS every 10 minutes for new Dice Tower videos
+[triggers]
+crons = ["*/10 * * * *"]
+
+[vars]
+GH_REPO = "nathanrtracey1/towercast"
+# Replace with The Dice Tower's channel ID (starts with UC). Find it with:
+#   yt-dlp --print channel_id --playlist-items 1 "https://www.youtube.com/@TheDiceTower/videos"
+YT_CHANNEL_ID = "UCiwBbXQlljGjKtKhcdMliRA"
+
+# Secrets (set with `npx wrangler secret put <NAME>`, never commit these):
+#   FEED_USER, FEED_PASS, AUDIO_TOKEN, GH_DISPATCH_TOKEN

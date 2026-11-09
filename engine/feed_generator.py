@@ -76,6 +76,7 @@ class FeedGenerator:
         self.feed_author = config.get("feed_author", "The Dice Tower")
         self.feed_image = config.get("feed_image_url", "")
         self.audio_format = config.get("audio_format", "m4a")
+        self.private_feed = config.get("private_feed", False)
 
     def _get_mime_type(self, filename: str) -> str:
         if filename.endswith(".m4a"):
@@ -104,6 +105,11 @@ class FeedGenerator:
         except Exception:
             pass
         return text
+
+    def _add_private_marker(self, channel: Any):
+        """Marks the feed private so Overcast keeps it out of search, sharing, and recommendations."""
+        if self.private_feed:
+            ET.SubElement(channel, "itunes:block").text = "yes"
 
     def generate_feed_xml(self, episodes: List[Dict[str, Any]]) -> str:
         """
@@ -135,6 +141,7 @@ class FeedGenerator:
         ET.SubElement(channel, "itunes:author").text = self.feed_author
         ET.SubElement(channel, "itunes:summary").text = self.feed_desc
         ET.SubElement(channel, "itunes:explicit").text = "false"
+        self._add_private_marker(channel)
 
         category = ET.SubElement(channel, "itunes:category", {"text": "Leisure"})
         ET.SubElement(category, "itunes:category", {"text": "Games"})
@@ -162,7 +169,7 @@ class FeedGenerator:
     def generate_feed_xml_with_full_urls(self, episodes: List[Dict[str, Any]]) -> str:
         """
         Variant for the GitHub CI builder. Episodes carry an 'audio_url' field
-        (GitHub Releases CDN URL) that is used directly as the enclosure URL,
+        (the Worker-served R2 URL) that is used directly as the enclosure URL,
         bypassing the local public_base_url + filename construction.
         """
         rss = ET.Element("rss", {
@@ -186,6 +193,7 @@ class FeedGenerator:
         ET.SubElement(channel, "itunes:author").text = self.feed_author
         ET.SubElement(channel, "itunes:summary").text = self.feed_desc
         ET.SubElement(channel, "itunes:explicit").text = "false"
+        self._add_private_marker(channel)
 
         category = ET.SubElement(channel, "itunes:category", {"text": "Leisure"})
         ET.SubElement(category, "itunes:category", {"text": "Games"})
