@@ -163,26 +163,53 @@ async function blindDispatch(env) {
   }
 }
 
+// Returns the IDs (of those given) that are upcoming or still live. Asks the
+// Data API when YT_API_KEY is set (1 quota unit for up to 50 videos); otherwise,
+// or if that call fails, uses the stream list saved by the last workflow scan:
+// an hour past the start time, or 2 hours past that scan if there's no start time.
+async function streamsNotReady(env, ids) {
+  if (env.YT_API_KEY) {
+    const res = await fetch(
+      `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${ids.slice(0, 50).join(",")}&key=${env.YT_API_KEY}`,
+    );
+    if (res.ok) {
+      const data = await res.json();
+      return new Set(
+        (data.items || [])
+          .filter((v) => ["upcoming", "live"].includes(v.snippet?.liveBroadcastContent))
+          .map((v) => v.id),
+      );
+    }
+    console.log(`YouTube Data API (videos) returned ${res.status}`);
+  }
+
+  const sched = (await readJson(env, "state/scheduled.json")) || {};
+  const scannedAt = Date.parse(sched.updated_at || "") || 0;
+  const held = new Set();
+  for (const [id, start] of Object.entries(sched.streams || {})) {
+    const holdUntil = start ? start * 1000 + 60 * 60_000 : scannedAt + 120 * 60_000;
+    if (Date.now() < holdUntil) held.add(id);
+  }
+  return held;
+}
+
 async function checkForNewVideos(env) {
   const ids = await fetchRecentIds(env);
   if (ids === null) return blindDispatch(env);
 
   const known = new Set((await readJson(env, "state/known_ids.json"))?.ids || []);
-
-  // Upcoming streams can't be downloaded yet. Hold each one until an hour after
-  // its start time (2 hours after the last scan if YouTube gave no start time).
-  const sched = (await readJson(env, "state/scheduled.json")) || {};
-  const scannedAt = Date.parse(sched.updated_at || "") || 0;
-  for (const [id, start] of Object.entries(sched.streams || {})) {
-    const holdUntil = start ? start * 1000 + 60 * 60_000 : scannedAt + 120 * 60_000;
-    if (Date.now() < holdUntil) known.add(id);
-  }
-
-  const fresh = ids.filter((id) => !known.has(id)).sort();
+  let fresh = ids.filter((id) => !known.has(id));
   if (fresh.length === 0) return;
 
-  // Same unhandled set as last time (e.g. an upcoming live stream or a failed
-  // download): retry every 30 min for the first few tries, then every 2 hours.
+  // Upcoming and in-progress streams can't be downloaded yet, so leave them
+  // out until YouTube reports them finished.
+  const notReady = await streamsNotReady(env, fresh);
+  fresh = fresh.filter((id) => !notReady.has(id)).sort();
+  if (fresh.length === 0) return;
+
+  // Same unhandled set as last time (e.g. a stream that just ended and isn't
+  // downloadable yet, or a failed download): retry every 30 min for the first
+  // few tries, then every 2 hours.
   const last = (await readJson(env, "state/last_dispatch.json")) || {};
   const sameSet = JSON.stringify(last.ids) === JSON.stringify(fresh);
   const attempts = sameSet ? last.attempts || 0 : 0;
