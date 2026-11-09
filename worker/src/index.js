@@ -168,6 +168,16 @@ async function checkForNewVideos(env) {
   if (ids === null) return blindDispatch(env);
 
   const known = new Set((await readJson(env, "state/known_ids.json"))?.ids || []);
+
+  // Upcoming streams can't be downloaded yet. Hold each one until an hour after
+  // its start time (2 hours after the last scan if YouTube gave no start time).
+  const sched = (await readJson(env, "state/scheduled.json")) || {};
+  const scannedAt = Date.parse(sched.updated_at || "") || 0;
+  for (const [id, start] of Object.entries(sched.streams || {})) {
+    const holdUntil = start ? start * 1000 + 60 * 60_000 : scannedAt + 120 * 60_000;
+    if (Date.now() < holdUntil) known.add(id);
+  }
+
   const fresh = ids.filter((id) => !known.has(id)).sort();
   if (fresh.length === 0) return;
 

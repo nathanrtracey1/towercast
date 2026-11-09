@@ -48,6 +48,9 @@ class YouTubeEngine:
         self.favorites_config = favorites_config or {}
         self.auto_download_all_new = auto_download_all_new
 
+        # Upcoming/live streams seen on the last scan: {video_id: start timestamp or None}
+        self.scheduled: Dict[str, Optional[int]] = {}
+
         # Flatten all favorites keywords for fast lookup
         self._favorites_keywords: List[str] = []
         if self.favorites_config.get("enabled"):
@@ -101,6 +104,7 @@ class YouTubeEngine:
         all_entries: List[Dict[str, Any]] = []
         seen_ids = set()
         channel_info = None
+        self.scheduled = {}
 
         recent_entries: List[Dict[str, Any]] = []
         backlog_entries: List[Dict[str, Any]] = []
@@ -140,7 +144,10 @@ class YouTubeEngine:
                     eid = e.get("id")
                     if eid and eid not in seen_ids:
                         if self.is_scheduled_or_live(e):
-                            logger.info(f"Skipping scheduled/active live stream: {eid} - {e.get('title')}")
+                            start = e.get("release_timestamp")
+                            self.scheduled[eid] = int(start) if isinstance(start, (int, float)) else None
+                            when = datetime.fromtimestamp(start, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC") if self.scheduled[eid] else "start time unknown"
+                            logger.info(f"Skipping scheduled/active live stream: {eid} - {e.get('title')} ({when})")
                             continue
                         seen_ids.add(eid)
                         is_recent = (url_idx < recent_threshold)

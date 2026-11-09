@@ -329,6 +329,13 @@ def save_known_ids(known: set):
     logger.info(f"🧭 Saved {len(known)} known video IDs for the watcher.")
 
 
+def save_scheduled(scheduled: Dict[str, Optional[int]]):
+    """Tells the Worker when upcoming streams start, so it doesn't retry them before then."""
+    payload = {"streams": scheduled, "updated_at": datetime.now(timezone.utc).isoformat()}
+    r2.upload_bytes(json.dumps(payload).encode("utf-8"), "state/scheduled.json", "application/json")
+    logger.info(f"📅 Saved {len(scheduled)} upcoming/live stream(s) for the watcher.")
+
+
 def handle_issue_event(api: GitHubAPI, config: Dict) -> Tuple[Optional[str], Optional[str], Optional[int]]:
     """Checks GITHUB_EVENT_PATH if workflow was triggered by an issue."""
     event_path = os.environ.get("GITHUB_EVENT_PATH")
@@ -415,6 +422,11 @@ def main():
     dismissed_ids = load_dismissed_ids(api)
     logger.info(f"Loaded {len(dismissed_ids)} dismissed video IDs from history.")
 
+    # Episodes created during this run. GitHub's release list can take a few
+    # minutes to show a release that was just created, so these are merged into
+    # the feed directly instead of waiting for the list to catch up.
+    published_now: Dict[str, Dict[str, Any]] = {}
+
     # Handle clearing the entire feed
     if action in ("clear_feed", "delete_all") or (action in ("delete", "delete_episode", "delete_batch") and target_video_id.lower() in ("all", "clear")):
         logger.info("🗑 Clearing all episodes from podcast feed...")
@@ -480,6 +492,8 @@ def main():
             "added_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
         }
         res = download_and_upload(target_video_id, video_url, classified, api, config)
+        if res:
+            published_now[target_video_id] = res
         if issue_num:
             try:
                 if res:
@@ -543,6 +557,7 @@ def main():
                 )
                 if result:
                     existing[vid_id] = result
+                    published_now[vid_id] = result
             else:
                 # Add to Backlog list for on-demand downloading
                 pending_entries.append(classified)
@@ -561,10 +576,19 @@ def main():
     all_releases = api.list_all_releases()
     all_episodes: List[Dict] = []
 
+    listed_ids = set()
     for rel in all_releases:
         ep = episode_from_release(rel)
         if ep:
             all_episodes.append(ep)
+            listed_ids.add(ep["id"])
+
+    for vid, result in published_now.items():
+        if vid not in listed_ids:
+            ep = episode_from_release({"tag_name": tag_for(vid), "body": build_release_body(result)})
+            if ep:
+                all_episodes.append(ep)
+                logger.info(f"➕ Added {vid} to the feed directly (not in the release list yet)")
 
     # Sort strictly chronologically by original YouTube published_at (newest first)
     all_episodes.sort(
@@ -606,6 +630,7 @@ def main():
     # Worker keeps retrying them (with backoff) until they make it into the feed.
     known = set(existing) | dismissed_ids | skipped_ids | {e["id"] for e in pending_entries}
     save_known_ids(known)
+    save_scheduled(yt.scheduled)
     logger.info("🚀 Done.")
 
 
